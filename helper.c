@@ -32,6 +32,6 @@ int read_from_file(char *buffer, FILE *fp, char *filename)
     return 1;
 }
 
-int tokenize(char *buffer, char *source)
+char **tokenize(char *buffer, char *source)
 {
 }
