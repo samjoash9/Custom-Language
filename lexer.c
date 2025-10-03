@@ -8,16 +8,16 @@
 
 enum LITERAL_TYPE
 {
-    INT,
-    CHAR,
+    L_INT,
+    L_CHAR,
 };
 
 enum KEYWORD_TYPE
 {
-    INT,
-    CHAR,
-    IF,
-    ELSE,
+    K_INT,
+    K_CHAR,
+    K_IF,
+    K_ELSE,
 };
 
 enum OPERATOR_TYPE
@@ -40,7 +40,8 @@ enum OPERATOR_TYPE
 
 enum DELIMITER_TYPE
 {
-    HASHTAG,
+    D_SEMICOLON,
+    D_NEWLINE,
 };
 
 enum TOKEN_TYPE
@@ -76,6 +77,37 @@ typedef struct
     } value;
 } LEX;
 
+int concatenate_char_to_string(char *destination, char source)
+{
+    if (source == '\0')
+        return 0;
+
+    int len = strlen(destination);
+
+    destination[len] = source;
+    destination[len + 1] = '\0';
+
+    return 1;
+}
+
+int issoperator(char c)
+{
+    switch (c)
+    {
+    case '+':
+    case '-':
+    case '*':
+    case '/':
+    case '=':
+    case '&':
+    case '|':
+    case '!':
+        return 1;
+    default:
+        return 0;
+    }
+}
+
 int main()
 {
     // READ FROM A FILE
@@ -87,13 +119,10 @@ int main()
         return 0;
     }
 
-    int max_lex_length = 0, max_rows = 0;
+    int max_lex_length = 0, max_rows = 0, rows = 0, colum = 0;
+    char c, current_token[MAX_BUFFER] = "\0";
 
-    // iterators
-    int rows = 0, colum = 0;
-    char c;
-
-    // allocate first LEx
+    // allocate first LEX
     LEX *lexer = (LEX *)malloc(sizeof(LEX));
 
     if (lexer == NULL)
@@ -105,7 +134,35 @@ int main()
     // create manual DFA in switch
     while ((c = fgetc(fp)) != EOF)
     {
-        printf("%c", c);
+        if (isalnum(c) || issoperator(c) || isdigit(c))
+        {
+            // concatenate to token
+            if (!concatenate_char_to_string(current_token, c))
+            {
+                printf("Error: could not concatenate token.");
+                return 0;
+            };
+        }
+        else if (isspace(c))
+        {
+            // store to LEX
+            printf("%s\n", current_token);
+
+            // reset token
+            current_token[0] = '\0';
+        }
+        else if (c == ';')
+        {
+            // store to LEX
+            printf("%s\n", current_token);
+
+            // reset token and go to next line
+            current_token[0] = '\0';
+        }
+        else if (c == '#')
+        {
+            // SKIP
+        }
     }
 
     free(lexer);
