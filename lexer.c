@@ -1,22 +1,23 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 
 #define MAX_LEXEME 50
 #define MAX_BUFFER 256
 
 enum LITERAL_TYPE
 {
-    L_INT,
-    L_CHAR,
+    INT,
+    CHAR,
 };
 
 enum KEYWORD_TYPE
 {
-    K_INT,
-    K_CHAR,
-    K_IF,
-    K_ELSE,
+    INT,
+    CHAR,
+    IF,
+    ELSE,
 };
 
 enum OPERATOR_TYPE
@@ -39,8 +40,7 @@ enum OPERATOR_TYPE
 
 enum DELIMITER_TYPE
 {
-    D_SEMICOLON,
-    D_HASHTAG,
+    HASHTAG,
 };
 
 enum TOKEN_TYPE
@@ -91,6 +91,7 @@ int main()
 
     // iterators
     int rows = 0, colum = 0;
+    char c;
 
     // allocate first LEx
     LEX *lexer = (LEX *)malloc(sizeof(LEX));
@@ -101,8 +102,13 @@ int main()
         return 0;
     }
 
-    //
+    // create manual DFA in switch
+    while ((c = fgetc(fp)) != EOF)
+    {
+        printf("%c", c);
+    }
 
+    free(lexer);
     fclose(fp);
     return 0;
 }
