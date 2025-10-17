@@ -5,6 +5,7 @@
 #include <ctype.h>
 #include "headers/syntax_analyzer.h"
 #include "headers/symbol_table.h"
+#include "headers/intermediate_code_generator.h"
 
 // === GLOBALS FROM LEXICAL ANALYZER ===
 extern TOKEN tokens[MAX_TOKENS];
@@ -584,7 +585,16 @@ void syntax_analyzer()
     else
         printf("\nSyntax Rejected (Error found)\n");
 
-    printf("===== SYNTAX ANALYSIS END =====\n");
+
+    printf("===== SYNTAX ANALYSIS END =====\n\n");
+
+
+    // --- NEW: GENERATE INTERMEDIATE CODE ---
+    generate_intermediate_code(tree);
 
     free_ast(tree);
 }
+
+
+
+
