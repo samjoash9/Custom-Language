@@ -9,3 +9,23 @@ d++;
 c--;
 int i += 5;
 int f = b + c++;
+
+int bird = 1
+
+
+;
+
+char letter = 'k'
+
+
+
+
+
+
+
+
+
+
+
+
+;
