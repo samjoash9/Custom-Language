@@ -1,14 +1,11 @@
-int a, b = 10, c, d = a + b * 2;
-char x, y = 'A';
-
-a = 1, b = 2 + 3, c = (a + b) * 2, d = -10;
-x = 'B', y = x;
-
-a += b * c - d / 2;
-b -= +a;
-c *= (a + b) / d;
-d /= -c + a * (b - 1);
-
-10 + 20 * (30 - 5);
-a + b + c;
-(a + (b - (c * (d / a))));
+int a, b = 10;
+a = b + 2;
+int c = 4;
+int d = a + c;
+int fear = 10 + d;
+char x;
+char xhasval = 'x';
+d++;
+c--;
+int i += 5;
+int f = b + c++;

@@ -211,7 +211,35 @@ int eval_node(ASTNode *node, int *out)
 
         // unknown assignment operator
         return 0;
+    }   
+    
+
+    // --- Increment/Decrement (++ / --) ---
+    if (node->type == NODE_EXPRESSION &&
+        (strcmp(node->value, "++") == 0 || strcmp(node->value, "--") == 0))
+    {
+        if (!node->left || node->left->type != NODE_FACTOR)
+            return 0;
+        const char *idname = node->left->value;
+        int idx = find_symbol(idname);
+        if (idx == -1)
+        {
+            printf("Semantic Error: Undeclared variable '%s'\n", idname);
+            return 0;
+        }
+
+        if (strcmp(symbol_table[idx].datatype, "int") != 0)
+            return 0;
+
+        if (strcmp(node->value, "++") == 0)
+            symbol_table[idx].value.integer_val += 1;
+        else
+            symbol_table[idx].value.integer_val -= 1;
+
+        *out = symbol_table[idx].value.integer_val;
+        return 1;
     }
+
 
     // Binary arithmetic nodes: NODE_EXPRESSION or NODE_TERM depending on how created
     if ((node->type == NODE_EXPRESSION || node->type == NODE_TERM) && node->left && node->right)
@@ -331,7 +359,7 @@ ASTNode *parse_statement()
 // === DECLARATION ===
 ASTNode *parse_declaration()
 {
-    TOKEN *datatype = consume();
+    TOKEN *datatype = consume(); // consume int/char/etc.
     ASTNode *decl_list = NULL, *last = NULL;
 
     while (1)
@@ -342,15 +370,32 @@ ASTNode *parse_declaration()
             error("Expected identifier in declaration");
             break;
         }
-        consume();
+        consume(); // consume identifier
 
         ASTNode *init = NULL;
         int initialized = 0, int_val = 0;
         char char_val = '\0';
 
-        if (match("="))
+        // Support both '=' and compound assignment operators
+        if (match("=") || match("+=") || match("-=") || match("*=") || match("/="))
         {
+            TOKEN *op = &tokens[current_token - 1]; // last matched operator
             init = parse_expression();
+
+            // If compound assignment, rewrite as binary op expression
+            if (strcmp(op->lexeme, "=") != 0)
+            {
+                const char *bin_op =
+                    strcmp(op->lexeme, "+=") == 0 ? "+" :
+                    strcmp(op->lexeme, "-=") == 0 ? "-" :
+                    strcmp(op->lexeme, "*=") == 0 ? "*" :
+                    strcmp(op->lexeme, "/=") == 0 ? "/" : "=";
+
+                ASTNode *id_node = create_node(NODE_FACTOR, id->lexeme, NULL, NULL);
+                init = create_node(NODE_EXPRESSION, bin_op, id_node, init);
+            }
+
+            // Evaluate if possible
             if (strcmp(datatype->lexeme, "int") == 0 && eval_node(init, &int_val))
                 initialized = 1;
             else if (strcmp(datatype->lexeme, "char") == 0 &&
@@ -361,6 +406,7 @@ ASTNode *parse_declaration()
             }
         }
 
+        // --- symbol table insertion ---
         if (find_symbol(id->lexeme) != -1)
             printf("Semantic Error: Redeclaration of '%s'\n", id->lexeme);
         else
@@ -371,6 +417,7 @@ ASTNode *parse_declaration()
                 add_symbol(id->lexeme, "char", char_val, initialized);
         }
 
+        // --- build AST ---
         ASTNode *decl = create_node(NODE_DECLARATION, id->lexeme, init, NULL);
         if (!decl_list)
             decl_list = decl;
@@ -382,6 +429,7 @@ ASTNode *parse_declaration()
             continue;
         break;
     }
+
     return create_node(NODE_DECLARATION, datatype->lexeme, decl_list, NULL);
 }
 
@@ -395,14 +443,15 @@ ASTNode *parse_assignment()
     node = parse_assignment_element();
 
     // If commas follow, chain them using COMMA expression nodes (value = ",")
-    while (match(","))
-    {
+    while (match(",")) {
         ASTNode *right = parse_assignment_element();
         node = create_node(NODE_EXPRESSION, ",", node, right);
     }
 
     return node;
 }
+
+
 
 // Helper: parse either assignment or expression element
 ASTNode *parse_assignment_element()
@@ -473,13 +522,30 @@ ASTNode *parse_term()
 }
 
 // === FACTOR ===
-// Handles unary + and -
+// Handles unary +, -, prefix ++/--, and postfix ++/--
 ASTNode *parse_factor()
 {
     TOKEN *tok = peek();
     if (!tok)
         return NULL;
 
+    // --- PREFIX increment/decrement ---
+    if (strcmp(tok->lexeme, "++") == 0 || strcmp(tok->lexeme, "--") == 0)
+    {
+        TOKEN *op = consume(); // consume ++ or --
+        TOKEN *id = peek();
+        if (!id || id->type != TOK_IDENTIFIER)
+        {
+            error("Expected identifier after prefix ++/--");
+            return NULL;
+        }
+        consume();
+        return create_node(NODE_EXPRESSION, op->lexeme,
+                           create_node(NODE_FACTOR, id->lexeme, NULL, NULL),
+                           NULL);
+    }
+
+    // --- Unary + or - ---
     if (strcmp(tok->lexeme, "+") == 0 || strcmp(tok->lexeme, "-") == 0)
     {
         TOKEN *op = consume();
@@ -487,14 +553,27 @@ ASTNode *parse_factor()
         return create_node(NODE_FACTOR, op->lexeme, NULL, right);
     }
 
+    // --- Identifier / literal ---
     if (tok->type == TOK_IDENTIFIER || tok->type == TOK_INT_LITERAL || tok->type == TOK_CHAR_LITERAL)
     {
         consume();
+
+        // --- POSTFIX increment/decrement ---
+        TOKEN *next = peek();
+        if (next && (strcmp(next->lexeme, "++") == 0 || strcmp(next->lexeme, "--") == 0))
+        {
+            TOKEN *op = consume();
+            return create_node(NODE_EXPRESSION, op->lexeme,
+                               create_node(NODE_FACTOR, tok->lexeme, NULL, NULL),
+                               NULL);
+        }
+
         if (tok->type == TOK_IDENTIFIER && find_symbol(tok->lexeme) == -1)
             printf("Semantic Error: Undeclared '%s'\n", tok->lexeme);
         return create_node(NODE_FACTOR, tok->lexeme, NULL, NULL);
     }
 
+    // --- Parenthesized expression ---
     if (tok->type == TOK_PARENTHESIS && strcmp(tok->lexeme, "(") == 0)
     {
         consume();
@@ -508,6 +587,7 @@ ASTNode *parse_factor()
     consume();
     return NULL;
 }
+
 
 // === EXECUTION: Walk the AST and evaluate non-declaration statements ===
 void execute_statements(ASTNode *stmt_list)
