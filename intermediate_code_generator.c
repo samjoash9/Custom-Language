@@ -2,11 +2,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+
 #include "headers/syntax_analyzer.h"
 #include "headers/symbol_table.h"
 #include "headers/intermediate_code_generator.h"
 
-typedef struct {
+typedef struct
+{
     char result[50];
     char arg1[50];
     char op[10];
@@ -41,7 +43,8 @@ static void emit(const char *result, const char *arg1, const char *op, const cha
 // Generate code for an expression node
 static char *generateExpression(ASTNode *node)
 {
-    if (!node) return NULL;
+    if (!node)
+        return NULL;
 
     // Factor: literal or identifier
     if (node->type == NODE_FACTOR && node->right == NULL)
@@ -133,55 +136,54 @@ static char *generateExpression(ASTNode *node)
     return NULL;
 }
 
-
-
 // Generate code for statements
 static void generateCode(ASTNode *node)
 {
-    if (!node) return;
+    if (!node)
+        return;
 
     switch (node->type)
     {
-        case NODE_PROGRAM:
-            generateCode(node->left);
-            break;
+    case NODE_PROGRAM:
+        generateCode(node->left);
+        break;
 
-        case NODE_STATEMENT_LIST:
-            generateCode(node->left);
-            generateCode(node->right);
-            break;
+    case NODE_STATEMENT_LIST:
+        generateCode(node->left);
+        generateCode(node->right);
+        break;
 
-        case NODE_STATEMENT:
-            generateCode(node->left);
-            break;
+    case NODE_STATEMENT:
+        generateCode(node->left);
+        break;
 
-        case NODE_DECLARATION:
+    case NODE_DECLARATION:
+    {
+        ASTNode *cur = node->left;
+        while (cur)
         {
-            ASTNode *cur = node->left;
-            while (cur)
+            // printf("%s %s\n", node->value, cur->value);
+            if (cur->left)
             {
-            //printf("%s %s\n", node->value, cur->value);
-                if (cur->left)
-                {
-                    char *rhs = generateExpression(cur->left);
-                    emit(cur->value, rhs, "=", NULL);
-                    free(rhs);
-                }
-                cur = cur->right;
+                char *rhs = generateExpression(cur->left);
+                emit(cur->value, rhs, "=", NULL);
+                free(rhs);
             }
-            break;
+            cur = cur->right;
         }
+        break;
+    }
 
-        case NODE_ASSIGNMENT:
-        case NODE_EXPRESSION:
-        {
-            char *res = generateExpression(node);
-            free(res);
-            break;
-        }
+    case NODE_ASSIGNMENT:
+    case NODE_EXPRESSION:
+    {
+        char *res = generateExpression(node);
+        free(res);
+        break;
+    }
 
-        default:
-            break;
+    default:
+        break;
     }
 }
 
@@ -192,13 +194,14 @@ static void removeRedundantTemporaries()
     memcpy(optimizedCode, code, sizeof(TACInstruction) * codeCount);
     optimizedCount = codeCount;
 
-    for (int i = 0; i < optimizedCount - 1; i++) {
+    for (int i = 0; i < optimizedCount - 1; i++)
+    {
         TACInstruction *cur = &optimizedCode[i];
         TACInstruction *next = &optimizedCode[i + 1];
 
         // Match pattern: tX = A op B  and next is  D = tX
-        if (strncmp(cur->result, "t", 1) == 0 &&        // result is temp
-            strcmp(next->arg1, cur->result) == 0 &&     // next uses it
+        if (strncmp(cur->result, "t", 1) == 0 &&    // result is temp
+            strcmp(next->arg1, cur->result) == 0 && // next uses it
             strcmp(next->op, "=") == 0 && strlen(next->arg2) == 0)
         {
             // Rewrite: D = A op B
@@ -213,7 +216,8 @@ static void removeRedundantTemporaries()
 
     // Compact the code array (remove blanks)
     int j = 0;
-    for (int i = 0; i < optimizedCount; i++) {
+    for (int i = 0; i < optimizedCount; i++)
+    {
         if (strlen(optimizedCode[i].result) > 0)
             optimizedCode[j++] = optimizedCode[i];
     }
@@ -224,7 +228,8 @@ static void removeRedundantTemporaries()
 static void displayTAC()
 {
     printf("===== INTERMEDIATE CODE (TAC) =====\n");
-    for (int i = 0; i < codeCount; i++) {
+    for (int i = 0; i < codeCount; i++)
+    {
         TACInstruction *inst = &code[i];
         if (strcmp(inst->op, "=") == 0 && strlen(inst->arg2) == 0)
             printf("%s = %s\n", inst->result, inst->arg1);
@@ -238,7 +243,8 @@ static void displayTAC()
 static void displayOptimizedTAC()
 {
     printf("===== OPTIMIZED CODE =====\n");
-    for (int i = 0; i < optimizedCount; i++) {
+    for (int i = 0; i < optimizedCount; i++)
+    {
         TACInstruction *inst = &optimizedCode[i];
         if (strcmp(inst->op, "=") == 0 && strlen(inst->arg2) == 0)
             printf("%s = %s\n", inst->result, inst->arg1);

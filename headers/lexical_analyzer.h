@@ -4,9 +4,11 @@
 #include <string.h>
 #include <ctype.h>
 
-#define MAX_VALUE_LENGTH 50
+#include "symbol_table.h"
+
 #define MAX_TOKENS 1024
 #define MAX_BUFFER_LEN 256
+#define MAX_VALUE_LENGTH 256
 
 // === TOKEN TYPES ===
 typedef enum
@@ -38,7 +40,7 @@ extern int token_count;
 void lexer(const char *source_code);
 int is_datatype(const char *token);
 int is_delimiter(char c);
-int is_operator(char c);
+int is_operator_char(char c);
 void reset_tokens(int *iterator, char *temp_token);
 void get_token_as_dt_or_id(const char *source, char *target, int *s_iterator, int *t_iterator);
 void get_token_as_value(const char *source, char *target, int *s_iterator, int *t_iterator);

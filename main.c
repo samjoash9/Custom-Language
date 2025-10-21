@@ -6,6 +6,8 @@
 #include "headers/symbol_table.h"
 #include "headers/lexical_analyzer.h"
 #include "headers/syntax_analyzer.h"
+#include "headers/semantic_analyzer.h"
+#include "headers/intermediate_code_generator.h"
 
 int main()
 {
@@ -41,8 +43,14 @@ int main()
     // === STEP 2: SYNTAX ANALYSIS ===
     syntax_analyzer();
 
-    // === STEP 3: DISPLAY SYMBOL TABLE (AFTER PARSING) ===
-    printf("\n===== SYMBOL TABLE (AFTER SYNTAX ANALYSIS) =====\n");
+    // STEP 3 : SEMANTIC ANALYZER
+    semantic_analylzer();
+
+    // STEP 4 : INTERMEDIATE CODE GENERATOR
+    generate_intermediate_code(syntax_tree);
+
+    // printf("\n===== SYMBOL TABLE (AFTER SYNTAX ANALYSIS) =====\n");
+    printf("\nSymbol count: %d\n", symbol_count);
     display_symbol_table();
 
     // Free memory

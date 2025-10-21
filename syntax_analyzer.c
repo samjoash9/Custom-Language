@@ -12,6 +12,7 @@ extern TOKEN tokens[MAX_TOKENS];
 extern int token_count;
 int current_token = 0;
 int syntax_error = 0;
+ASTNode *syntax_tree = NULL;
 
 // === UTILITY FUNCTIONS ===
 TOKEN *peek()
@@ -63,218 +64,6 @@ ASTNode *create_node(NodeType type, const char *value, ASTNode *left, ASTNode *r
     return node;
 }
 
-// === EVALUATION HELPERS ===
-// Evaluate AST node and optionally update symbol table for assignments.
-// Returns 1 on success (value computed), places value in *out.
-// Supports: integer literals, identifiers (reads symbol_table), unary +/-,
-// binary + - * / (nodes of type EXPRESSION/TERM), assignment nodes (NODE_ASSIGNMENT),
-// and comma operator represented by node->value == "," (NODE_EXPRESSION).
-int eval_node(ASTNode *node, int *out)
-{
-    if (!node)
-        return 0;
-
-    // Factor leaf: integer literal or identifier or char literal
-    if (node->type == NODE_FACTOR && node->left == NULL && node->right == NULL)
-    {
-        const char *s = node->value;
-        if (s[0] == '\0')
-            return 0;
-
-        // integer literal (optionally signed)
-        int i = 0;
-        if (s[0] == '+' || s[0] == '-')
-            i = 1;
-        int all_digits = 1;
-        for (int j = i; s[j] != '\0'; j++)
-            if (!isdigit((unsigned char)s[j]))
-            {
-                all_digits = 0;
-                break;
-            }
-        if (all_digits)
-        {
-            *out = atoi(s);
-            return 1;
-        }
-
-        // identifier: read from symbol table if exists and is int
-        int idx = find_symbol(s);
-        if (idx == -1)
-            return 0;
-        if (strcmp(symbol_table[idx].datatype, "int") == 0)
-        {
-            *out = symbol_table[idx].value.integer_val;
-            return 1;
-        }
-        return 0;
-    }
-
-    // Unary operator stored as NODE_FACTOR with right child (created by parse_factor)
-    if (node->type == NODE_FACTOR && node->right != NULL && node->left == NULL &&
-        (strcmp(node->value, "+") == 0 || strcmp(node->value, "-") == 0))
-    {
-        int val;
-        if (!eval_node(node->right, &val))
-            return 0;
-        *out = (strcmp(node->value, "-") == 0) ? -val : val;
-        return 1;
-    }
-
-    // Comma operator: we used NODE_EXPRESSION with value ","
-    if (node->type == NODE_EXPRESSION && strcmp(node->value, ",") == 0)
-    {
-        int tmp;
-        // evaluate left for side-effects, ignore its return
-        eval_node(node->left, &tmp);
-        // evaluate right and return its value
-        return eval_node(node->right, out);
-    }
-
-    // Assignment node: left is a factor (identifier), right is expression
-    if (node->type == NODE_ASSIGNMENT)
-    {
-        // left should be a factor with identifier
-        if (!node->left || node->left->type != NODE_FACTOR)
-            return 0;
-        const char *idname = node->left->value;
-        if (idname[0] == '\0')
-            return 0;
-
-        int rhs;
-        if (!eval_node(node->right, &rhs))
-            return 0; // cannot evaluate RHS
-
-        int idx = find_symbol(idname);
-        if (idx == -1)
-        {
-            printf("Semantic Error: Undeclared variable '%s'\n", idname);
-            return 0;
-        }
-
-        // handle operator in node->value: "=", "+=", "-=", "*=", "/="
-        if (strcmp(node->value, "=") == 0)
-        {
-            if (strcmp(symbol_table[idx].datatype, "int") == 0)
-            {
-                symbol_table[idx].value.integer_val = rhs;
-                *out = rhs;
-                return 1;
-            }
-            return 0;
-        }
-        else if (strcmp(node->value, "+=") == 0)
-        {
-            if (strcmp(symbol_table[idx].datatype, "int") == 0)
-            {
-                symbol_table[idx].value.integer_val += rhs;
-                *out = symbol_table[idx].value.integer_val;
-                return 1;
-            }
-            return 0;
-        }
-        else if (strcmp(node->value, "-=") == 0)
-        {
-            if (strcmp(symbol_table[idx].datatype, "int") == 0)
-            {
-                symbol_table[idx].value.integer_val -= rhs;
-                *out = symbol_table[idx].value.integer_val;
-                return 1;
-            }
-            return 0;
-        }
-        else if (strcmp(node->value, "*=") == 0)
-        {
-            if (strcmp(symbol_table[idx].datatype, "int") == 0)
-            {
-                symbol_table[idx].value.integer_val *= rhs;
-                *out = symbol_table[idx].value.integer_val;
-                return 1;
-            }
-            return 0;
-        }
-        else if (strcmp(node->value, "/=") == 0)
-        {
-            if (strcmp(symbol_table[idx].datatype, "int") == 0)
-            {
-                if (rhs == 0)
-                {
-                    printf("Runtime Error: Division by zero in assignment to '%s'\n", idname);
-                    return 0;
-                }
-                symbol_table[idx].value.integer_val /= rhs;
-                *out = symbol_table[idx].value.integer_val;
-                return 1;
-            }
-            return 0;
-        }
-
-        // unknown assignment operator
-        return 0;
-    }   
-    
-
-    // --- Increment/Decrement (++ / --) ---
-    if (node->type == NODE_EXPRESSION &&
-        (strcmp(node->value, "++") == 0 || strcmp(node->value, "--") == 0))
-    {
-        if (!node->left || node->left->type != NODE_FACTOR)
-            return 0;
-        const char *idname = node->left->value;
-        int idx = find_symbol(idname);
-        if (idx == -1)
-        {
-            printf("Semantic Error: Undeclared variable '%s'\n", idname);
-            return 0;
-        }
-
-        if (strcmp(symbol_table[idx].datatype, "int") != 0)
-            return 0;
-
-        if (strcmp(node->value, "++") == 0)
-            symbol_table[idx].value.integer_val += 1;
-        else
-            symbol_table[idx].value.integer_val -= 1;
-
-        *out = symbol_table[idx].value.integer_val;
-        return 1;
-    }
-
-
-    // Binary arithmetic nodes: NODE_EXPRESSION or NODE_TERM depending on how created
-    if ((node->type == NODE_EXPRESSION || node->type == NODE_TERM) && node->left && node->right)
-    {
-        int l, r;
-        if (!eval_node(node->left, &l) || !eval_node(node->right, &r))
-            return 0;
-
-        if (strcmp(node->value, "+") == 0)
-        {
-            *out = l + r;
-            return 1;
-        }
-        if (strcmp(node->value, "-") == 0)
-        {
-            *out = l - r;
-            return 1;
-        }
-        if (strcmp(node->value, "*") == 0)
-        {
-            *out = l * r;
-            return 1;
-        }
-        if (strcmp(node->value, "/") == 0)
-        {
-            if (r == 0)
-                return 0;
-            *out = l / r;
-            return 1;
-        }
-    }
-
-    return 0;
-}
-
 // === FORWARD DECLARATIONS ===
 ASTNode *parse_expression();
 ASTNode *parse_term();
@@ -320,7 +109,6 @@ ASTNode *parse_statement()
     }
     else if (tok->type == TOK_IDENTIFIER)
     {
-        // Peek next token to decide assignment vs expression
         TOKEN *next = (current_token + 1 < token_count) ? &tokens[current_token + 1] : NULL;
 
         if (next && next->type == TOK_OPERATOR &&
@@ -334,24 +122,19 @@ ASTNode *parse_statement()
         }
         else
         {
-            // it's an expression statement starting with identifier
             stmt_node = parse_expression();
         }
     }
     else
     {
-        // expression can start with INT_LITERAL, CHAR_LITERAL, '(' or unary +/- or operator
         stmt_node = parse_expression();
     }
 
     if (!stmt_node)
         return NULL;
 
-    // Require semicolon after any statement form
     if (!match(";"))
-    {
         error("Missing ';' after statement");
-    }
 
     return create_node(NODE_STATEMENT, "STATEMENT", stmt_node, NULL);
 }
@@ -359,7 +142,7 @@ ASTNode *parse_statement()
 // === DECLARATION ===
 ASTNode *parse_declaration()
 {
-    TOKEN *datatype = consume(); // consume int/char/etc.
+    TOKEN *datatype = consume(); // int or char
     ASTNode *decl_list = NULL, *last = NULL;
 
     while (1)
@@ -372,78 +155,51 @@ ASTNode *parse_declaration()
         }
         consume(); // consume identifier
 
-        ASTNode *init = NULL;
-        int initialized = 0, int_val = 0;
-        char char_val = '\0';
+        ASTNode *rhs_node = NULL;
+        int initialized = 0;
+        char literal_value[MAX_VALUE_LEN] = "";
 
-        // Support both '=' and compound assignment operators
-        if (match("=") || match("+=") || match("-=") || match("*=") || match("/="))
+        if (match("="))
         {
-            TOKEN *op = &tokens[current_token - 1]; // last matched operator
-            init = parse_expression();
+            rhs_node = parse_expression(); // build AST for RHS
 
-            // If compound assignment, rewrite as binary op expression
-            if (strcmp(op->lexeme, "=") != 0)
+            // If RHS is literal, store value in symbol table
+            if (rhs_node->type == NODE_FACTOR &&
+                (isdigit(rhs_node->value[0]) || rhs_node->value[0] == '\''))
             {
-                const char *bin_op =
-                    strcmp(op->lexeme, "+=") == 0 ? "+" :
-                    strcmp(op->lexeme, "-=") == 0 ? "-" :
-                    strcmp(op->lexeme, "*=") == 0 ? "*" :
-                    strcmp(op->lexeme, "/=") == 0 ? "/" : "=";
-
-                ASTNode *id_node = create_node(NODE_FACTOR, id->lexeme, NULL, NULL);
-                init = create_node(NODE_EXPRESSION, bin_op, id_node, init);
-            }
-
-            // Evaluate if possible
-            if (strcmp(datatype->lexeme, "int") == 0 && eval_node(init, &int_val))
-                initialized = 1;
-            else if (strcmp(datatype->lexeme, "char") == 0 &&
-                     init->type == NODE_FACTOR && strlen(init->value) == 1)
-            {
-                char_val = init->value[0];
+                strcpy(literal_value, rhs_node->value);
                 initialized = 1;
             }
-        }
-
-        // --- symbol table insertion ---
-        if (find_symbol(id->lexeme) != -1)
-            printf("Semantic Error: Redeclaration of '%s'\n", id->lexeme);
-        else
-        {
-            if (strcmp(datatype->lexeme, "int") == 0)
-                add_symbol(id->lexeme, "int", int_val, initialized);
             else
-                add_symbol(id->lexeme, "char", char_val, initialized);
+            {
+                initialized = 1; // variable is initialized, but RHS is non-literal
+            }
         }
 
-        // --- build AST ---
-        ASTNode *decl = create_node(NODE_DECLARATION, id->lexeme, init, NULL);
-        if (!decl_list)
-            decl_list = decl;
-        else
-            last->right = decl;
-        last = decl;
+        add_symbol(id->lexeme, datatype->lexeme, literal_value, initialized);
 
-        if (match(","))
-            continue;
-        break;
+        ASTNode *decl_node = create_node(NODE_DECLARATION, id->lexeme, rhs_node, NULL);
+        if (!decl_list)
+            decl_list = decl_node;
+        else
+            last->right = decl_node;
+        last = decl_node;
+
+        if (!match(","))
+            break;
     }
 
     return create_node(NODE_DECLARATION, datatype->lexeme, decl_list, NULL);
 }
 
 // === ASSIGNMENT ===
-// Handles comma-separated list where elements can be assignments or expressions
 ASTNode *parse_assignment()
 {
     ASTNode *node = NULL;
-
-    // Parse first element
     node = parse_assignment_element();
 
-    // If commas follow, chain them using COMMA expression nodes (value = ",")
-    while (match(",")) {
+    while (match(","))
+    {
         ASTNode *right = parse_assignment_element();
         node = create_node(NODE_EXPRESSION, ",", node, right);
     }
@@ -451,45 +207,56 @@ ASTNode *parse_assignment()
     return node;
 }
 
-
-
-// Helper: parse either assignment or expression element
+// === ASSIGNMENT ELEMENT ===
 ASTNode *parse_assignment_element()
 {
-    TOKEN *tok = peek();
-    if (!tok)
-        return NULL;
-
-    // Check if it's an identifier followed by assignment operator
-    if (tok->type == TOK_IDENTIFIER)
+    TOKEN *id = peek();
+    if (!id || id->type != TOK_IDENTIFIER)
     {
-        TOKEN *next = (current_token + 1 < token_count) ? &tokens[current_token + 1] : NULL;
-        if (next && next->type == TOK_OPERATOR &&
-            (strcmp(next->lexeme, "=") == 0 ||
-             strcmp(next->lexeme, "+=") == 0 ||
-             strcmp(next->lexeme, "-=") == 0 ||
-             strcmp(next->lexeme, "*=") == 0 ||
-             strcmp(next->lexeme, "/=") == 0))
+        error("Expected identifier in assignment");
+        return NULL;
+    }
+    consume();
+
+    TOKEN *op = peek();
+    if (!op || op->type != TOK_OPERATOR)
+    {
+        error("Expected operator in assignment");
+        return NULL;
+    }
+    TOKEN op_token = *op;
+    consume();
+
+    ASTNode *rhs_node = parse_expression(); // build AST for RHS
+
+    int idx = find_symbol(id->lexeme);
+    if (idx != -1)
+    {
+        // If RHS is literal, update value
+        if (rhs_node->type == NODE_FACTOR &&
+            (isdigit(rhs_node->value[0]) || rhs_node->value[0] == '\''))
         {
-            TOKEN *id = consume();
-            TOKEN *op = consume();
-            ASTNode *expr = parse_expression();
-
-            int idx = find_symbol(id->lexeme);
-            if (idx == -1)
-                printf("Semantic Error: Undeclared variable '%s'\n", id->lexeme);
-
-            return create_node(NODE_ASSIGNMENT, op->lexeme,
-                               create_node(NODE_FACTOR, id->lexeme, NULL, NULL),
-                               expr);
+            update_symbol_value(id->lexeme, symbol_table[idx].datatype, rhs_node->value);
+        }
+        else
+        {
+            // Mark initialized, but do not store raw expression
+            symbol_table[idx].initialized = 1;
         }
     }
+    else
+    {
+        // Variable undeclared, add with empty datatype
+        add_symbol(id->lexeme, "", "", 0);
+    }
 
-    // Otherwise it's just a standalone expression (like b, c, d)
-    return parse_expression();
+    return create_node(NODE_ASSIGNMENT, op_token.lexeme,
+                       create_node(NODE_FACTOR, id->lexeme, NULL, NULL),
+                       rhs_node);
 }
 
-// === EXPRESSION ===
+// === EXPRESSION / TERM / FACTOR ===
+// (Still parses structure, just for AST building — no evaluation)
 ASTNode *parse_expression()
 {
     ASTNode *node = parse_term();
@@ -505,7 +272,6 @@ ASTNode *parse_expression()
     return node;
 }
 
-// === TERM ===
 ASTNode *parse_term()
 {
     ASTNode *node = parse_factor();
@@ -521,99 +287,79 @@ ASTNode *parse_term()
     return node;
 }
 
-// === FACTOR ===
-// Handles unary +, -, prefix ++/--, and postfix ++/--
 ASTNode *parse_factor()
 {
     TOKEN *tok = peek();
     if (!tok)
         return NULL;
 
-    // --- PREFIX increment/decrement ---
-    if (strcmp(tok->lexeme, "++") == 0 || strcmp(tok->lexeme, "--") == 0)
+    // 1️. Prefix unary operators
+    if (tok->type == TOK_OPERATOR &&
+        (strcmp(tok->lexeme, "+") == 0 || strcmp(tok->lexeme, "-") == 0 ||
+         strcmp(tok->lexeme, "++") == 0 || strcmp(tok->lexeme, "--") == 0))
     {
-        TOKEN *op = consume(); // consume ++ or --
-        TOKEN *id = peek();
-        if (!id || id->type != TOK_IDENTIFIER)
-        {
-            error("Expected identifier after prefix ++/--");
-            return NULL;
-        }
+        TOKEN op_token = *tok;
         consume();
-        return create_node(NODE_EXPRESSION, op->lexeme,
-                           create_node(NODE_FACTOR, id->lexeme, NULL, NULL),
-                           NULL);
+        ASTNode *factor_node = parse_factor();
+        return create_node(NODE_UNARY_OP, op_token.lexeme, factor_node, NULL);
     }
 
-    // --- Unary + or - ---
-    if (strcmp(tok->lexeme, "+") == 0 || strcmp(tok->lexeme, "-") == 0)
-    {
-        TOKEN *op = consume();
-        ASTNode *right = parse_factor();
-        return create_node(NODE_FACTOR, op->lexeme, NULL, right);
-    }
+    ASTNode *node = NULL;
 
-    // --- Identifier / literal ---
-    if (tok->type == TOK_IDENTIFIER || tok->type == TOK_INT_LITERAL || tok->type == TOK_CHAR_LITERAL)
-    {
-        consume();
-
-        // --- POSTFIX increment/decrement ---
-        TOKEN *next = peek();
-        if (next && (strcmp(next->lexeme, "++") == 0 || strcmp(next->lexeme, "--") == 0))
-        {
-            TOKEN *op = consume();
-            return create_node(NODE_EXPRESSION, op->lexeme,
-                               create_node(NODE_FACTOR, tok->lexeme, NULL, NULL),
-                               NULL);
-        }
-
-        if (tok->type == TOK_IDENTIFIER && find_symbol(tok->lexeme) == -1)
-            printf("Semantic Error: Undeclared '%s'\n", tok->lexeme);
-        return create_node(NODE_FACTOR, tok->lexeme, NULL, NULL);
-    }
-
-    // --- Parenthesized expression ---
+    // 2️. Parentheses
     if (tok->type == TOK_PARENTHESIS && strcmp(tok->lexeme, "(") == 0)
     {
         consume();
-        ASTNode *expr = parse_expression();
+        node = parse_expression();
         if (!match(")"))
             error("Missing ')'");
-        return expr;
+    }
+    // 3️. Identifiers or literals
+    else if (tok->type == TOK_IDENTIFIER || tok->type == TOK_INT_LITERAL || tok->type == TOK_CHAR_LITERAL)
+    {
+        consume();
+        node = create_node(NODE_FACTOR, tok->lexeme, NULL, NULL);
+
+        // Check symbol table for identifiers
+        if (tok->type == TOK_IDENTIFIER)
+        {
+            int idx = find_symbol(tok->lexeme);
+            if (idx == -1)
+                add_symbol(tok->lexeme, "", "", 0);
+        }
+    }
+    else
+    {
+        error("Unexpected token in factor");
+        consume();
+        return NULL;
     }
 
-    error("Unexpected token in factor");
-    consume();
-    return NULL;
-}
-
-
-// === EXECUTION: Walk the AST and evaluate non-declaration statements ===
-void execute_statements(ASTNode *stmt_list)
-{
-    if (!stmt_list)
-        return;
-
-    // stmt_list is NODE_STATEMENT_LIST: left is statement, right is next
-    ASTNode *cur = stmt_list;
-    while (cur)
+    // 4️. Postfix operators
+    tok = peek();
+    while (tok && tok->type == TOK_OPERATOR &&
+           (strcmp(tok->lexeme, "++") == 0 || strcmp(tok->lexeme, "--") == 0))
     {
-        ASTNode *stmt = cur->left; // STATEMENT node
-        if (stmt && stmt->left)    // stmt->left is the inner node
+        TOKEN op_token = *tok;
+        consume();
+        node = create_node(NODE_POSTFIX_OP, op_token.lexeme, node, NULL);
+
+        // Optional: update symbol table for identifier
+        if (node->left == NULL && node->type == NODE_FACTOR)
         {
-            ASTNode *inner = stmt->left;
-            // If it's a declaration node, skip - declarations were handled during parse_declaration()
-            if (inner->type != NODE_DECLARATION)
+            int idx = find_symbol(node->value);
+            if (idx != -1)
             {
-                int val;
-                // evaluate the inner expression/assignment/comma-expression to apply assignments / side-effects
-                eval_node(inner, &val);
-                // we ignore the numeric result for statement, but eval_node will apply assignments
+                char expr[MAX_VALUE_LEN];
+                snprintf(expr, MAX_VALUE_LEN, "%s%s", node->value, op_token.lexeme);
+                update_symbol_value(node->value, symbol_table[idx].datatype, expr);
             }
         }
-        cur = cur->right; // next statement in list
+
+        tok = peek();
     }
+
+    return node;
 }
 
 // === AST PRINTER ===
@@ -653,28 +399,15 @@ void syntax_analyzer()
     current_token = 0;
     syntax_error = 0;
 
-    ASTNode *tree = parse_program();
-    print_ast(tree, 0);
+    syntax_tree = parse_program();
 
-    // Execute non-declaration statements to update symbol table (assignments, comma expressions, etc.)
-    if (tree && tree->left)
-        execute_statements(tree->left);
+    print_ast(syntax_tree, 0);
 
     if (syntax_error == 0 && current_token == token_count)
         printf("\nSyntax Accepted!\n");
     else
         printf("\nSyntax Rejected (Error found)\n");
 
-
     printf("===== SYNTAX ANALYSIS END =====\n\n");
-
-
-    // --- NEW: GENERATE INTERMEDIATE CODE ---
-    generate_intermediate_code(tree);
-
-    free_ast(tree);
+    free_ast(syntax_tree);
 }
-
-
-
-

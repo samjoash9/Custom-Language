@@ -5,7 +5,6 @@
 
 #define MAX_VALUE_LEN 100
 
-// === AST NODE TYPES ===
 typedef enum
 {
     NODE_PROGRAM,
@@ -15,10 +14,11 @@ typedef enum
     NODE_ASSIGNMENT,
     NODE_EXPRESSION,
     NODE_TERM,
-    NODE_FACTOR
+    NODE_FACTOR,
+    NODE_UNARY_OP,
+    NODE_POSTFIX_OP,
 } NodeType;
 
-// === AST STRUCTURE ===
 typedef struct ASTNode
 {
     NodeType type;
@@ -27,13 +27,14 @@ typedef struct ASTNode
     struct ASTNode *right;
 } ASTNode;
 
-// === FUNCTION DECLARATIONS ===
+extern ASTNode *syntax_tree;
+
 void syntax_analyzer();
 ASTNode *create_node(NodeType type, const char *value, ASTNode *left, ASTNode *right);
 void print_ast(ASTNode *node, int depth);
 void free_ast(ASTNode *node);
+void generate_intermediate_code(ASTNode *root);
 
-// === PARSER FUNCTIONS ===
 ASTNode *parse_program();
 ASTNode *parse_statement_list();
 ASTNode *parse_statement();
