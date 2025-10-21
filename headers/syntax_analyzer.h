@@ -1,10 +1,13 @@
 #ifndef SYNTAX_ANALYZER_H
 #define SYNTAX_ANALYZER_H
 
+#define MAX_VALUE_LEN 256
+
 #include "lexical_analyzer.h"
+#include "symbol_table.h"
+#include "intermediate_code_generator.h"
 
-#define MAX_VALUE_LEN 100
-
+// === AST NODE TYPES ===
 typedef enum
 {
     NODE_PROGRAM,
@@ -16,33 +19,36 @@ typedef enum
     NODE_TERM,
     NODE_FACTOR,
     NODE_UNARY_OP,
-    NODE_POSTFIX_OP,
+    NODE_POSTFIX_OP
 } NodeType;
 
+// === AST NODE STRUCT ===
 typedef struct ASTNode
 {
     NodeType type;
-    char value[MAX_VALUE_LEN];
+    char *value; // Pointer to dynamically allocated string
     struct ASTNode *left;
     struct ASTNode *right;
 } ASTNode;
 
 extern ASTNode *syntax_tree;
 
-void syntax_analyzer();
+// === CORE FUNCTIONS ===
 ASTNode *create_node(NodeType type, const char *value, ASTNode *left, ASTNode *right);
-void print_ast(ASTNode *node, int depth);
 void free_ast(ASTNode *node);
-void generate_intermediate_code(ASTNode *root);
+void print_ast(ASTNode *node, int depth);
 
+// === PARSER ENTRY POINT ===
 ASTNode *parse_program();
+void syntax_analyzer();
+
+// === PARSER SUBFUNCTIONS (Forward Declarations) ===
 ASTNode *parse_statement_list();
 ASTNode *parse_statement();
 ASTNode *parse_declaration();
 ASTNode *parse_assignment();
-ASTNode *parse_assignment_element();
 ASTNode *parse_expression();
 ASTNode *parse_term();
 ASTNode *parse_factor();
 
-#endif
+#endif // SYNTAX_ANALYZER_H

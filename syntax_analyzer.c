@@ -3,9 +3,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+
 #include "headers/syntax_analyzer.h"
-#include "headers/symbol_table.h"
-#include "headers/intermediate_code_generator.h"
 
 // === GLOBALS FROM LEXICAL ANALYZER ===
 extern TOKEN tokens[MAX_TOKENS];
@@ -58,9 +57,17 @@ ASTNode *create_node(NodeType type, const char *value, ASTNode *left, ASTNode *r
         exit(1);
     }
     node->type = type;
-    strcpy(node->value, value ? value : "");
     node->left = left;
     node->right = right;
+    if (value)
+        node->value = strdup(value); // deep copy
+    else
+        node->value = strdup(""); // keep non-NULL for printing convenience
+    if (!node->value)
+    {
+        fprintf(stderr, "Out of memory duplicating node value\n");
+        exit(1);
+    }
     return node;
 }
 
@@ -164,10 +171,11 @@ ASTNode *parse_declaration()
             rhs_node = parse_expression(); // build AST for RHS
 
             // If RHS is literal, store value in symbol table
-            if (rhs_node->type == NODE_FACTOR &&
-                (isdigit(rhs_node->value[0]) || rhs_node->value[0] == '\''))
+            if (rhs_node && rhs_node->type == NODE_FACTOR &&
+                (isdigit((unsigned char)rhs_node->value[0]) || rhs_node->value[0] == '\''))
             {
-                strcpy(literal_value, rhs_node->value);
+                strncpy(literal_value, rhs_node->value, sizeof(literal_value) - 1);
+                literal_value[sizeof(literal_value) - 1] = '\0';
                 initialized = 1;
             }
             else
@@ -233,8 +241,8 @@ ASTNode *parse_assignment_element()
     if (idx != -1)
     {
         // If RHS is literal, update value
-        if (rhs_node->type == NODE_FACTOR &&
-            (isdigit(rhs_node->value[0]) || rhs_node->value[0] == '\''))
+        if (rhs_node && rhs_node->type == NODE_FACTOR &&
+            (isdigit((unsigned char)rhs_node->value[0]) || rhs_node->value[0] == '\''))
         {
             update_symbol_value(id->lexeme, symbol_table[idx].datatype, rhs_node->value);
         }
@@ -256,7 +264,6 @@ ASTNode *parse_assignment_element()
 }
 
 // === EXPRESSION / TERM / FACTOR ===
-// (Still parses structure, just for AST building — no evaluation)
 ASTNode *parse_expression()
 {
     ASTNode *node = parse_term();
@@ -293,7 +300,7 @@ ASTNode *parse_factor()
     if (!tok)
         return NULL;
 
-    // 1️. Prefix unary operators
+    // Prefix unary operators
     if (tok->type == TOK_OPERATOR &&
         (strcmp(tok->lexeme, "+") == 0 || strcmp(tok->lexeme, "-") == 0 ||
          strcmp(tok->lexeme, "++") == 0 || strcmp(tok->lexeme, "--") == 0))
@@ -306,7 +313,7 @@ ASTNode *parse_factor()
 
     ASTNode *node = NULL;
 
-    // 2️. Parentheses
+    // Parentheses
     if (tok->type == TOK_PARENTHESIS && strcmp(tok->lexeme, "(") == 0)
     {
         consume();
@@ -314,7 +321,7 @@ ASTNode *parse_factor()
         if (!match(")"))
             error("Missing ')'");
     }
-    // 3️. Identifiers or literals
+    // Identifiers or literals
     else if (tok->type == TOK_IDENTIFIER || tok->type == TOK_INT_LITERAL || tok->type == TOK_CHAR_LITERAL)
     {
         consume();
@@ -335,7 +342,7 @@ ASTNode *parse_factor()
         return NULL;
     }
 
-    // 4️. Postfix operators
+    // Postfix operators
     tok = peek();
     while (tok && tok->type == TOK_OPERATOR &&
            (strcmp(tok->lexeme, "++") == 0 || strcmp(tok->lexeme, "--") == 0))
@@ -377,7 +384,7 @@ void print_ast(ASTNode *node, int depth)
                                              : node->type == NODE_EXPRESSION       ? "EXPR"
                                              : node->type == NODE_TERM             ? "TERM"
                                                                                    : "FACTOR";
-    printf("(%s: %s)\n", type_str, node->value);
+    printf("(%s: %s)\n", type_str, node->value ? node->value : "(null)");
     print_ast(node->left, depth + 1);
     print_ast(node->right, depth + 1);
 }
@@ -389,6 +396,8 @@ void free_ast(ASTNode *node)
         return;
     free_ast(node->left);
     free_ast(node->right);
+    if (node->value)
+        free(node->value);
     free(node);
 }
 
@@ -409,5 +418,6 @@ void syntax_analyzer()
         printf("\nSyntax Rejected (Error found)\n");
 
     printf("===== SYNTAX ANALYSIS END =====\n\n");
-    free_ast(syntax_tree);
+
+    // DO NOT free syntax_tree here — main or driver will call free_ast(syntax_tree)
 }

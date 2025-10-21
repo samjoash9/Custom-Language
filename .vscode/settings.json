@@ -59,6 +59,7 @@
   "files.associations": {
     "*.dbclient-js": "javascript",
     "*.embeddedhtml": "html",
-    "symbol_table.h": "c"
+    "symbol_table.h": "c",
+    "lexical_analyzer.h": "c"
   }
 }
