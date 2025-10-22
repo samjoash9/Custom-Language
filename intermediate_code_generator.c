@@ -1,3 +1,4 @@
+// intermediate_code_generator.c
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -9,10 +10,10 @@
 
 typedef struct
 {
-    char result[50];
-    char arg1[50];
-    char op[10];
-    char arg2[50];
+    char result[64];
+    char arg1[64];
+    char op[16];
+    char arg2[64];
 } TACInstruction;
 
 static TACInstruction *code = NULL;
@@ -21,68 +22,104 @@ static int codeCount = 0;
 static int optimizedCount = 0;
 static int tempCount = 0;
 
-// Allocate a new temporary variable name
+// === Utility ===
 static char *newTemp()
 {
-    char *name = (char *)malloc(10 * sizeof(char));
-    sprintf(name, "t%d", tempCount++);
-    return name;
+    char buf[32];
+    snprintf(buf, sizeof(buf), "t%d", tempCount++);
+    return strdup(buf);
 }
 
-// Emit a TAC instruction
 static void emit(const char *result, const char *arg1, const char *op, const char *arg2)
 {
-    code = realloc(code, sizeof(TACInstruction) * (codeCount + 1));
-    strcpy(code[codeCount].result, result ? result : "");
-    strcpy(code[codeCount].arg1, arg1 ? arg1 : "");
-    strcpy(code[codeCount].op, op ? op : "");
-    strcpy(code[codeCount].arg2, arg2 ? arg2 : "");
+    TACInstruction *tmp = realloc(code, sizeof(TACInstruction) * (codeCount + 1));
+    if (!tmp)
+    {
+        fprintf(stderr, "Memory allocation failed in emit()\n");
+        exit(1);
+    }
+    code = tmp;
+
+    snprintf(code[codeCount].result, sizeof(code[codeCount].result), "%s", result ? result : "");
+    snprintf(code[codeCount].arg1, sizeof(code[codeCount].arg1), "%s", arg1 ? arg1 : "");
+    snprintf(code[codeCount].op, sizeof(code[codeCount].op), "%s", op ? op : "");
+    snprintf(code[codeCount].arg2, sizeof(code[codeCount].arg2), "%s", arg2 ? arg2 : "");
     codeCount++;
 }
 
-// Generate code for an expression node
+// === Expression Generator ===
 static char *generateExpression(ASTNode *node)
 {
     if (!node)
         return NULL;
 
-    // Factor: literal or identifier
-    if (node->type == NODE_FACTOR && node->right == NULL)
-        return strdup(node->value);
+    // Leaf node (identifier or literal)
+    if (node->left == NULL && node->right == NULL)
+        return strdup(node->value ? node->value : "");
 
-    // Unary operator (e.g., -a)
-    if (node->type == NODE_FACTOR && node->right != NULL)
+    // Handle postfix operators (++ / --)
+    if (node->type == NODE_POSTFIX_OP && node->left)
     {
-        char *right = generateExpression(node->right);
-        char *temp = newTemp();
-        emit(temp, node->value, "", right);
-        free(right);
-        return temp;
+        // For postfix used in expression contexts you'd need to return original value;
+        // for standalone statement it's fine to just update x.
+        // We'll produce: t0 = x + 1 ; x = t0  (postfix value lost, but works for standalone)
+        // If you need exact postfix semantics when used inside larger expressions,
+        // you'd emit original value into a temp and then increment.
+        if (strcmp(node->value, "++") == 0)
+        {
+            char *tmp = newTemp();                   // t0
+            emit(tmp, node->left->value, "+", "1");  // t0 = x + 1
+            emit(node->left->value, tmp, "=", NULL); // x = t0
+            free(tmp);
+            return strdup(node->left->value);
+        }
+        else if (strcmp(node->value, "--") == 0)
+        {
+            char *tmp = newTemp();
+            emit(tmp, node->left->value, "-", "1");
+            emit(node->left->value, tmp, "=", NULL);
+            free(tmp);
+            return strdup(node->left->value);
+        }
     }
 
-    // Comma expression
-    if (node->type == NODE_EXPRESSION && strcmp(node->value, ",") == 0)
+    // Handle prefix operators (++ / --) (NODE_UNARY_OP)
+    if (node->type == NODE_UNARY_OP && node->left)
     {
-        generateExpression(node->left);
-        char *res = generateExpression(node->right);
-        return res;
+        if (strcmp(node->value, "++") == 0)
+        {
+            // produce: t0 = x + 1 ; x = t0
+            char *tmp = newTemp();
+            emit(tmp, node->left->value, "+", "1");
+            emit(node->left->value, tmp, "=", NULL);
+            free(tmp);
+            return strdup(node->left->value);
+        }
+        else if (strcmp(node->value, "--") == 0)
+        {
+            char *tmp = newTemp();
+            emit(tmp, node->left->value, "-", "1");
+            emit(node->left->value, tmp, "=", NULL);
+            free(tmp);
+            return strdup(node->left->value);
+        }
+        else if (strcmp(node->value, "-") == 0)
+        {
+            // unary minus: produce temp = 0 - rhs
+            char *rhs = generateExpression(node->left);
+            char *tmp = newTemp();
+            emit(tmp, "0", "-", rhs);
+            free(rhs);
+            return tmp;
+        }
+        else if (strcmp(node->value, "+") == 0)
+        {
+            return generateExpression(node->left);
+        }
     }
 
-    // Increment/Decrement (++ / --)
-    if (node->type == NODE_EXPRESSION &&
-        (strcmp(node->value, "++") == 0 || strcmp(node->value, "--") == 0))
-    {
-        const char *id = node->left->value;
-        char *temp = newTemp();
-        const char *op = strcmp(node->value, "++") == 0 ? "+" : "-";
-        emit(temp, id, op, "1");
-        emit((char *)id, temp, "=", NULL);
-        return strdup(id);
-    }
-
-    // Binary operator (EXPRESSION or TERM)
-    if ((node->type == NODE_EXPRESSION || node->type == NODE_TERM) &&
-        node->left && node->right)
+    // Handle binary operations (+, -, *, /, etc.)
+    if (node->left && node->right)
     {
         char *left = generateExpression(node->left);
         char *right = generateExpression(node->right);
@@ -93,50 +130,33 @@ static char *generateExpression(ASTNode *node)
         return temp;
     }
 
-    // Assignment operators
-    if (node->type == NODE_ASSIGNMENT)
+    // Handle assignment (=, +=, -=, etc.)
+    if (node->type == NODE_ASSIGNMENT && strcmp(node->value, "=") == 0 && node->left && node->right)
     {
-        if (strcmp(node->value, "+=") == 0)
-        {
-            char *rhs = generateExpression(node->right);
-            emit(node->left->value, node->left->value, "+", rhs);
-            free(rhs);
-            return strdup(node->left->value);
-        }
-        else if (strcmp(node->value, "-=") == 0)
-        {
-            char *rhs = generateExpression(node->right);
-            emit(node->left->value, node->left->value, "-", rhs);
-            free(rhs);
-            return strdup(node->left->value);
-        }
-        else if (strcmp(node->value, "*=") == 0)
-        {
-            char *rhs = generateExpression(node->right);
-            emit(node->left->value, node->left->value, "*", rhs);
-            free(rhs);
-            return strdup(node->left->value);
-        }
-        else if (strcmp(node->value, "/=") == 0)
-        {
-            char *rhs = generateExpression(node->right);
-            emit(node->left->value, node->left->value, "/", rhs);
-            free(rhs);
-            return strdup(node->left->value);
-        }
-        else if (strcmp(node->value, "=") == 0)
-        {
-            char *rhs = generateExpression(node->right);
-            emit(node->left->value, rhs, "=", NULL);
-            free(rhs);
-            return strdup(node->left->value);
-        }
+        char *rhs = generateExpression(node->right);
+        emit(node->left->value, rhs, "=", NULL);
+        free(rhs);
+        return strdup(node->left->value);
+    }
+    else if (node->type == NODE_ASSIGNMENT &&
+             (strcmp(node->value, "+=") == 0 ||
+              strcmp(node->value, "-=") == 0 ||
+              strcmp(node->value, "*=") == 0 ||
+              strcmp(node->value, "/=") == 0) &&
+             node->left && node->right)
+    {
+        char op[2] = {node->value[0], '\0'}; // "+=" -> '+'
+        char *rhs = generateExpression(node->right);
+        emit(node->left->value, node->left->value, op, rhs);
+        free(rhs);
+        return strdup(node->left->value);
     }
 
-    return NULL;
+    // Default fallback
+    return strdup(node->value ? node->value : "");
 }
 
-// Generate code for statements
+// === Code Generator ===
 static void generateCode(ASTNode *node)
 {
     if (!node)
@@ -162,12 +182,14 @@ static void generateCode(ASTNode *node)
         ASTNode *cur = node->left;
         while (cur)
         {
-            // printf("%s %s\n", node->value, cur->value);
             if (cur->left)
             {
                 char *rhs = generateExpression(cur->left);
-                emit(cur->value, rhs, "=", NULL);
-                free(rhs);
+                if (rhs)
+                {
+                    emit(cur->value, rhs, "=", NULL);
+                    free(rhs);
+                }
             }
             cur = cur->right;
         }
@@ -176,9 +198,12 @@ static void generateCode(ASTNode *node)
 
     case NODE_ASSIGNMENT:
     case NODE_EXPRESSION:
+    case NODE_POSTFIX_OP:
+    case NODE_UNARY_OP: // <-- **ADDED** so prefix unary ops get emitted
     {
         char *res = generateExpression(node);
-        free(res);
+        if (res)
+            free(res);
         break;
     }
 
@@ -187,9 +212,12 @@ static void generateCode(ASTNode *node)
     }
 }
 
-// Optimization: remove redundant temporaries
+// === Optimization ===
 static void removeRedundantTemporaries()
 {
+    if (codeCount == 0)
+        return;
+
     optimizedCode = malloc(sizeof(TACInstruction) * codeCount);
     memcpy(optimizedCode, code, sizeof(TACInstruction) * codeCount);
     optimizedCount = codeCount;
@@ -199,22 +227,17 @@ static void removeRedundantTemporaries()
         TACInstruction *cur = &optimizedCode[i];
         TACInstruction *next = &optimizedCode[i + 1];
 
-        // Match pattern: tX = A op B  and next is  D = tX
-        if (strncmp(cur->result, "t", 1) == 0 &&    // result is temp
-            strcmp(next->arg1, cur->result) == 0 && // next uses it
-            strcmp(next->op, "=") == 0 && strlen(next->arg2) == 0)
+        if (cur->result[0] == 't' &&
+            strcmp(next->arg1, cur->result) == 0 &&
+            strcmp(next->op, "=") == 0)
         {
-            // Rewrite: D = A op B
-            strcpy(next->arg1, cur->arg1);
-            strcpy(next->op, cur->op);
-            strcpy(next->arg2, cur->arg2);
-
-            // Mark current as removed
-            strcpy(cur->result, "");
+            snprintf(next->arg1, sizeof(next->arg1), "%s", cur->arg1);
+            snprintf(next->op, sizeof(next->op), "%s", cur->op);
+            snprintf(next->arg2, sizeof(next->arg2), "%s", cur->arg2);
+            cur->result[0] = '\0';
         }
     }
 
-    // Compact the code array (remove blanks)
     int j = 0;
     for (int i = 0; i < optimizedCount; i++)
     {
@@ -224,7 +247,7 @@ static void removeRedundantTemporaries()
     optimizedCount = j;
 }
 
-// Display TAC
+// === Display ===
 static void displayTAC()
 {
     printf("===== INTERMEDIATE CODE (TAC) =====\n");
@@ -239,7 +262,6 @@ static void displayTAC()
     printf("===== INTERMEDIATE CODE (TAC) END =====\n\n");
 }
 
-// Display optimized TAC
 static void displayOptimizedTAC()
 {
     printf("===== OPTIMIZED CODE =====\n");
@@ -254,25 +276,28 @@ static void displayOptimizedTAC()
     printf("===== OPTIMIZED CODE END =====\n");
 }
 
-// Public interface
+// === Public Interface ===
 void generate_intermediate_code(ASTNode *root)
 {
+    if (code)
+        free(code);
+    if (optimizedCode)
+        free(optimizedCode);
     code = NULL;
+    optimizedCode = NULL;
     codeCount = 0;
+    optimizedCount = 0;
     tempCount = 0;
 
     if (root)
         generateCode(root);
 
-    // Show original TAC
     displayTAC();
-
-    // Run optimization
     removeRedundantTemporaries();
-
-    // Show optimized version
     displayOptimizedTAC();
 
-    free(code);
-    free(optimizedCode);
+    if (code)
+        free(code);
+    if (optimizedCode)
+        free(optimizedCode);
 }

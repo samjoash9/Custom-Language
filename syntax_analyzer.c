@@ -376,6 +376,7 @@ void print_ast(ASTNode *node, int depth)
         return;
     for (int i = 0; i < depth; i++)
         printf("  ");
+
     const char *type_str =
         node->type == NODE_PROGRAM ? "PROGRAM" : node->type == NODE_STATEMENT_LIST ? "STMT_LIST"
                                              : node->type == NODE_STATEMENT        ? "STMT"
@@ -383,7 +384,10 @@ void print_ast(ASTNode *node, int depth)
                                              : node->type == NODE_ASSIGNMENT       ? "ASSIGN"
                                              : node->type == NODE_EXPRESSION       ? "EXPR"
                                              : node->type == NODE_TERM             ? "TERM"
+                                             : node->type == NODE_UNARY_OP         ? "UNARY_OP"
+                                             : node->type == NODE_POSTFIX_OP       ? "POSTFIX_OP"
                                                                                    : "FACTOR";
+
     printf("(%s: %s)\n", type_str, node->value ? node->value : "(null)");
     print_ast(node->left, depth + 1);
     print_ast(node->right, depth + 1);

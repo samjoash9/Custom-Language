@@ -7,7 +7,7 @@
 TOKEN tokens[MAX_TOKENS];
 int token_count = 0;
 
-// Check if token is a valid datatype
+// Check if token is a valid datatypew
 int is_datatype(const char *token)
 {
     return (strcmp(token, "int") == 0 || strcmp(token, "char") == 0);

@@ -49,8 +49,7 @@ int main()
     // STEP 4 : INTERMEDIATE CODE GENERATOR
     generate_intermediate_code(syntax_tree);
 
-    // printf("\n===== SYMBOL TABLE (AFTER SYNTAX ANALYSIS) =====\n");
-    printf("\nSymbol count: %d\n", symbol_count);
+    printf("\n\n===== SYMBOL TABLE (AFTER SYNTAX ANALYSIS) =====\n");
     display_symbol_table();
 
     // Free memory
