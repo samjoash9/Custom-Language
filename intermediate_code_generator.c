@@ -57,55 +57,70 @@ static char *generateExpression(ASTNode *node)
     if (node->left == NULL && node->right == NULL)
         return strdup(node->value ? node->value : "");
 
-    // Handle postfix operators (++ / --)
-    if (node->type == NODE_POSTFIX_OP && node->left)
+    // Handle assignment first (simple and compound)
+    if (node->type == NODE_ASSIGNMENT && node->left && node->right)
     {
-        // For postfix used in expression contexts you'd need to return original value;
-        // for standalone statement it's fine to just update x.
-        // We'll produce: t0 = x + 1 ; x = t0  (postfix value lost, but works for standalone)
-        // If you need exact postfix semantics when used inside larger expressions,
-        // you'd emit original value into a temp and then increment.
-        if (strcmp(node->value, "++") == 0)
+        // Simple assignment
+        if (strcmp(node->value, "=") == 0)
         {
-            char *tmp = newTemp();                   // t0
-            emit(tmp, node->left->value, "+", "1");  // t0 = x + 1
-            emit(node->left->value, tmp, "=", NULL); // x = t0
-            free(tmp);
+            char *rhs = generateExpression(node->right);
+            emit(node->left->value, rhs, "=", NULL);
+            free(rhs);
             return strdup(node->left->value);
         }
-        else if (strcmp(node->value, "--") == 0)
+        // Compound assignment: +=, -=, *=, /=
+        else if (strcmp(node->value, "+=") == 0 ||
+                 strcmp(node->value, "-=") == 0 ||
+                 strcmp(node->value, "*=") == 0 ||
+                 strcmp(node->value, "/=") == 0)
         {
+            char op[2] = {node->value[0], '\0'}; // "*=" -> '*'
+            char *rhs = generateExpression(node->right);
             char *tmp = newTemp();
-            emit(tmp, node->left->value, "-", "1");
-            emit(node->left->value, tmp, "=", NULL);
+            emit(tmp, node->left->value, op, rhs);   // tX = x op rhs
+            emit(node->left->value, tmp, "=", NULL); // x = tX
+            free(rhs);
             free(tmp);
             return strdup(node->left->value);
         }
     }
 
-    // Handle prefix operators (++ / --) (NODE_UNARY_OP)
+    // Handle postfix operators (++ / --)
+    if (node->type == NODE_POSTFIX_OP && node->left)
+    {
+        char *tmpVal = newTemp(); // store original value
+        emit(tmpVal, node->left->value, "=", NULL);
+
+        char *tmpInc = newTemp();
+        if (strcmp(node->value, "++") == 0)
+            emit(tmpInc, node->left->value, "+", "1");
+        else if (strcmp(node->value, "--") == 0)
+            emit(tmpInc, node->left->value, "-", "1");
+
+        emit(node->left->value, tmpInc, "=", NULL);
+        free(tmpVal);
+        free(tmpInc);
+        return strdup(node->left->value);
+    }
+
+    // Handle unary operators (++ / -- / + / -)
     if (node->type == NODE_UNARY_OP && node->left)
     {
-        if (strcmp(node->value, "++") == 0)
-        {
-            // produce: t0 = x + 1 ; x = t0
-            char *tmp = newTemp();
-            emit(tmp, node->left->value, "+", "1");
-            emit(node->left->value, tmp, "=", NULL);
-            free(tmp);
-            return strdup(node->left->value);
-        }
-        else if (strcmp(node->value, "--") == 0)
+        if (strcmp(node->value, "++") == 0 || strcmp(node->value, "--") == 0)
         {
             char *tmp = newTemp();
-            emit(tmp, node->left->value, "-", "1");
+            char *rhs = generateExpression(node->left);
+            if (strcmp(node->value, "++") == 0)
+                emit(tmp, rhs, "+", "1");
+            else
+                emit(tmp, rhs, "-", "1");
             emit(node->left->value, tmp, "=", NULL);
             free(tmp);
+            free(rhs);
             return strdup(node->left->value);
         }
         else if (strcmp(node->value, "-") == 0)
         {
-            // unary minus: produce temp = 0 - rhs
             char *rhs = generateExpression(node->left);
             char *tmp = newTemp();
             emit(tmp, "0", "-", rhs);
@@ -118,41 +133,19 @@ static char *generateExpression(ASTNode *node)
         }
     }
 
-    // Handle binary operations (+, -, *, /, etc.)
+    // Handle binary operations (+, -, *, /)
     if (node->left && node->right)
     {
         char *left = generateExpression(node->left);
         char *right = generateExpression(node->right);
-        char *temp = newTemp();
-        emit(temp, left, node->value, right);
+        char *tmp = newTemp();
+        emit(tmp, left, node->value, right);
         free(left);
         free(right);
-        return temp;
+        return tmp;
     }
 
-    // Handle assignment (=, +=, -=, etc.)
-    if (node->type == NODE_ASSIGNMENT && strcmp(node->value, "=") == 0 && node->left && node->right)
-    {
-        char *rhs = generateExpression(node->right);
-        emit(node->left->value, rhs, "=", NULL);
-        free(rhs);
-        return strdup(node->left->value);
-    }
-    else if (node->type == NODE_ASSIGNMENT &&
-             (strcmp(node->value, "+=") == 0 ||
-              strcmp(node->value, "-=") == 0 ||
-              strcmp(node->value, "*=") == 0 ||
-              strcmp(node->value, "/=") == 0) &&
-             node->left && node->right)
-    {
-        char op[2] = {node->value[0], '\0'}; // "+=" -> '+'
-        char *rhs = generateExpression(node->right);
-        emit(node->left->value, node->left->value, op, rhs);
-        free(rhs);
-        return strdup(node->left->value);
-    }
-
-    // Default fallback
+    // fallback
     return strdup(node->value ? node->value : "");
 }
 
@@ -199,7 +192,7 @@ static void generateCode(ASTNode *node)
     case NODE_ASSIGNMENT:
     case NODE_EXPRESSION:
     case NODE_POSTFIX_OP:
-    case NODE_UNARY_OP: // <-- **ADDED** so prefix unary ops get emitted
+    case NODE_UNARY_OP:
     {
         char *res = generateExpression(node);
         if (res)
@@ -212,7 +205,7 @@ static void generateCode(ASTNode *node)
     }
 }
 
-// === Optimization ===
+// === Optimization: remove redundant temporaries ===
 static void removeRedundantTemporaries()
 {
     if (codeCount == 0)
@@ -240,10 +233,9 @@ static void removeRedundantTemporaries()
 
     int j = 0;
     for (int i = 0; i < optimizedCount; i++)
-    {
         if (strlen(optimizedCode[i].result) > 0)
             optimizedCode[j++] = optimizedCode[i];
-    }
+
     optimizedCount = j;
 }
 
