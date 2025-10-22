@@ -8,6 +8,6 @@
 extern int has_semantic_error;
 
 // Function declaration
-int semantic_analylzer();
+int semantic_analyzer();
 
 #endif

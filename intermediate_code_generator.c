@@ -4,25 +4,22 @@
 #include <string.h>
 #include <ctype.h>
 
-#include "headers/syntax_analyzer.h"
-#include "headers/symbol_table.h"
 #include "headers/intermediate_code_generator.h"
 
-typedef struct
-{
-    char result[64];
-    char arg1[64];
-    char op[16];
-    char arg2[64];
-} TACInstruction;
-
 static TACInstruction *code = NULL;
-static TACInstruction *optimizedCode = NULL;
+TACInstruction *optimizedCode = NULL;
 static int codeCount = 0;
-static int optimizedCount = 0;
+int optimizedCount = 0;
 static int tempCount = 0;
 
 // === Utility ===
+TACInstruction *getOptimizedCode(int *count)
+{
+    if (count)
+        *count = optimizedCount;
+    return optimizedCode;
+}
+
 static char *newTemp()
 {
     char buf[32];
@@ -57,83 +54,72 @@ static char *generateExpression(ASTNode *node)
     if (node->left == NULL && node->right == NULL)
         return strdup(node->value ? node->value : "");
 
-    // Handle assignment first (simple and compound)
+    // Assignment (simple or compound)
     if (node->type == NODE_ASSIGNMENT && node->left && node->right)
     {
+        char *lhs = node->left->value;
+
         // Simple assignment
         if (strcmp(node->value, "=") == 0)
         {
             char *rhs = generateExpression(node->right);
-            emit(node->left->value, rhs, "=", NULL);
+            emit(lhs, rhs, "=", NULL);
             free(rhs);
-            return strdup(node->left->value);
+            return strdup(lhs);
         }
-        // Compound assignment: +=, -=, *=, /=
+        // Compound assignment (+=, -=, *=, /=)
         else if (strcmp(node->value, "+=") == 0 ||
                  strcmp(node->value, "-=") == 0 ||
                  strcmp(node->value, "*=") == 0 ||
                  strcmp(node->value, "/=") == 0)
         {
-            char op[2] = {node->value[0], '\0'}; // "*=" -> '*'
+            char op[2] = {node->value[0], '\0'}; // "+=" -> '+'
             char *rhs = generateExpression(node->right);
-            char *tmp = newTemp();
-            emit(tmp, node->left->value, op, rhs);   // tX = x op rhs
-            emit(node->left->value, tmp, "=", NULL); // x = tX
+            emit(lhs, lhs, op, rhs); // x = x op rhs
             free(rhs);
-            free(tmp);
-            return strdup(node->left->value);
+            return strdup(lhs);
         }
     }
 
-    // Handle postfix operators (++ / --)
+    // Postfix operations (++ / --)
     if (node->type == NODE_POSTFIX_OP && node->left)
     {
-        char *tmpVal = newTemp(); // store original value
-        emit(tmpVal, node->left->value, "=", NULL);
-
-        char *tmpInc = newTemp();
+        char *var = node->left->value;
         if (strcmp(node->value, "++") == 0)
-            emit(tmpInc, node->left->value, "+", "1");
+            emit(var, var, "+", "1");
         else if (strcmp(node->value, "--") == 0)
-            emit(tmpInc, node->left->value, "-", "1");
-
-        emit(node->left->value, tmpInc, "=", NULL);
-        free(tmpVal);
-        free(tmpInc);
-        return strdup(node->left->value);
+            emit(var, var, "-", "1");
+        return strdup(var);
     }
 
-    // Handle unary operators (++ / -- / + / -)
+    // Unary operators (++ / -- / + / -)
     if (node->type == NODE_UNARY_OP && node->left)
     {
-        if (strcmp(node->value, "++") == 0 || strcmp(node->value, "--") == 0)
+        char *lhs = generateExpression(node->left);
+        if (strcmp(node->value, "++") == 0)
         {
-            char *tmp = newTemp();
-            char *rhs = generateExpression(node->left);
-            if (strcmp(node->value, "++") == 0)
-                emit(tmp, rhs, "+", "1");
-            else
-                emit(tmp, rhs, "-", "1");
-            emit(node->left->value, tmp, "=", NULL);
-            free(tmp);
-            free(rhs);
-            return strdup(node->left->value);
+            emit(lhs, lhs, "+", "1");
+            return lhs;
+        }
+        else if (strcmp(node->value, "--") == 0)
+        {
+            emit(lhs, lhs, "-", "1");
+            return lhs;
         }
         else if (strcmp(node->value, "-") == 0)
         {
-            char *rhs = generateExpression(node->left);
             char *tmp = newTemp();
-            emit(tmp, "0", "-", rhs);
-            free(rhs);
+            emit(tmp, "0", "-", lhs);
+            free(lhs);
             return tmp;
         }
         else if (strcmp(node->value, "+") == 0)
         {
-            return generateExpression(node->left);
+            return lhs;
         }
     }
 
-    // Handle binary operations (+, -, *, /)
+    // Binary operations (+, -, *, /)
     if (node->left && node->right)
     {
         char *left = generateExpression(node->left);

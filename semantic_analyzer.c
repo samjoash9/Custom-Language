@@ -3,7 +3,7 @@
 
 int has_semantic_error = 0;
 
-int semantic_analylzer()
+int semantic_analyzer()
 {
     printf("\n====== SEMANTIC ANALYZER ======\n");
     printf("Semantic Analyzer is running.\n\n");

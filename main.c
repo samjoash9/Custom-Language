@@ -8,6 +8,7 @@
 #include "headers/syntax_analyzer.h"
 #include "headers/semantic_analyzer.h"
 #include "headers/intermediate_code_generator.h"
+#include "headers/target_code_generator.h"
 
 int main()
 {
@@ -43,13 +44,18 @@ int main()
     // === STEP 2: SYNTAX ANALYSIS ===
     syntax_analyzer();
 
-    // STEP 3 : SEMANTIC ANALYZER
-    semantic_analylzer();
+    // === STEP 3: SEMANTIC ANALYSIS ===
+    semantic_analyzer();
 
     // STEP 4 : INTERMEDIATE CODE GENERATOR
     generate_intermediate_code(syntax_tree);
 
-    printf("\n\n===== SYMBOL TABLE (AFTER SYNTAX ANALYSIS) =====\n");
+    // STEP 5 : TARGET CODE GENERATOR (MIPS64)
+    printf("\n===== MIPS64 TARGET CODE =====\n");
+    generate_target_code();
+
+    // === SYMBOL TABLE ===
+    printf("\n\n===== SYMBOL TABLE (AFTER ANALYSIS) =====\n");
     display_symbol_table();
 
     // Free memory

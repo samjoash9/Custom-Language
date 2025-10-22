@@ -60,6 +60,8 @@
     "*.dbclient-js": "javascript",
     "*.embeddedhtml": "html",
     "symbol_table.h": "c",
-    "lexical_analyzer.h": "c"
+    "lexical_analyzer.h": "c",
+    "intermediate_code_generator.h": "c",
+    "semantic_analyzer.h": "c"
   }
 }
