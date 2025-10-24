@@ -60,6 +60,8 @@ int main()
 
     // Free memory
     free(source_code);
+    if (optimizedCode)
+        free(optimizedCode);
 
     return 0;
 }

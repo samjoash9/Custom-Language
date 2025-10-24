@@ -1,114 +1,516 @@
-#include <stdio.h>
-#include <string.h>
 #include "headers/target_code_generator.h"
-#include "headers/symbol_table.h"
 
-extern TACInstruction *optimizedCode;
-extern int optimizedCount;
+Register registers[MAX_REGISTERS];
+Data data_storage[MAX_DATA];
+int data_count = 0;
 
-// Temporary registers for t0-t9
-#define TEMP_COUNT 10
-static char *tempRegs[TEMP_COUNT] = {"r1", "r2", "r3", "r4", "r5", "r6", "r7", "r8", "r9", "r10"};
-static int tempCounter = 0;
-
-// Find variable index in symbol table
-static int findVarIndex(const char *name)
+void initialize_registers()
 {
-    if (!name)
-        return -1;
-    for (int i = 0; i < symbol_count; i++)
-        if (strcmp(symbol_table[i].name, name) == 0)
-            return i;
-    return -1;
+    for (int i = 0; i < MAX_REGISTERS; i++)
+    {
+        sprintf(registers[i].name, "r%d", i + 1);
+        registers[i].used = 0;
+        registers[i].assigned_temp[0] = '\0';
+
+        // debug
+        // printf("%s\n", registers[i].name);
+    }
 }
 
-static void generateDataSection()
+void add_to_data_storage(char *data)
+{
+    strcpy(data_storage[data_count++].data, data);
+}
+
+void display_data_storage()
+{
+    printf("The data storage: ");
+
+    for (int i = 0; i < data_count; i++)
+    {
+        printf("%s ", data_storage[i].data);
+    }
+}
+
+int is_in_data_storage(char *data)
+{
+    if (data_count == 0)
+        return 0;
+
+    for (int i = 0; i < data_count; i++)
+    {
+        if (strcmp(data_storage[i].data, data) == 0)
+            return 1;
+    }
+
+    return 0;
+}
+
+Register *get_available_register()
+{
+    for (int i = 0; i < MAX_REGISTERS; i++)
+    {
+        if (registers[i].used == 0)
+        {
+            return &registers[i];
+        }
+    }
+
+    return NULL;
+}
+
+int is_tac_temporary(char *tac)
+{
+    if (tac[0] == 't' && isdigit(tac[1]))
+        return 1;
+
+    return 0;
+}
+
+Register *find_temp_reg(char *temp)
+{
+    for (int i = 0; i < MAX_REGISTERS; i++)
+    {
+        if (registers[i].used && strcmp(registers[i].assigned_temp, temp) == 0)
+            return &registers[i];
+    }
+
+    return NULL;
+}
+
+void generate_data_section()
 {
     printf(".data\n");
+
     for (int i = 0; i < symbol_count; i++)
     {
-        printf("%s: .dword 0\n", symbol_table[i].name);
+        printf("%s: .word64 0\n", symbol_table[i].name);
+        add_to_data_storage(symbol_table[i].name);
     }
-    printf("\n");
 }
 
-// Generate .code section
-static void generateCodeSection()
+int is_digit(char *value)
 {
-    printf(".code\n");
-    tempCounter = 0;
+    // Check for NULL or empty string
+    if (value == NULL || *value == '\0')
+        return 0;
+
+    // Allow optional leading '-'
+    if (*value == '-')
+        value++;
+
+    // After '-', there must be at least one digit
+    if (!*value)
+        return 0;
+
+    // Check that all remaining characters are digits
+    while (*value)
+    {
+        if (!isdigit(*value))
+            return 0;
+        value++;
+    }
+
+    return 1;
+}
+
+void display_tac_as_comment(TACInstruction ins)
+{
+    if (strlen(ins.arg2) == 0)
+        printf("; %s = %s\n", ins.result, ins.arg1);
+    else
+        printf("; %s = %s %s %s\n", ins.result, ins.arg1, ins.op, ins.arg2);
+}
+
+void perform_operation(char *result, char *arg1, char *op, char *arg2, Register *reg1, Register *reg2, Register *reg3, int is_for_temporary)
+{
+    // determine operation
+    if (strcmp(op, "+") == 0)
+    {
+        printf("dadd %s, %s, %s\n", reg3->name, reg1->name, reg2->name);
+    }
+    else if (strcmp(op, "-") == 0)
+    {
+        printf("dsub %s, %s, %s\n", reg3->name, reg1->name, reg2->name);
+    }
+    else if (strcmp(op, "*") == 0)
+    {
+        printf("dmult %s, %s\n", reg1->name, reg2->name);
+        printf("mflo %s\n", reg3->name);
+    }
+    else if (strcmp(op, "/") == 0)
+    {
+        printf("ddiv %s, %s\n", reg1->name, reg2->name);
+        printf("mflo %s\n", reg3->name);
+    }
+
+    if (!is_for_temporary)
+    {
+        printf("sw %s, %s(r0)\n", reg3->name, result);
+
+        // reset registers
+        initialize_registers();
+    }
+    else
+        strcpy(reg3->assigned_temp, result);
+}
+
+void generate_code_section()
+{
+    printf("\n.code\n");
 
     for (int i = 0; i < optimizedCount; i++)
     {
-        TACInstruction *inst = &optimizedCode[i];
-        int idxRes = findVarIndex(inst->result);
-        int idxArg1 = findVarIndex(inst->arg1);
-        int idxArg2 = findVarIndex(inst->arg2);
+        TACInstruction ins = optimizedCode[i];
+        display_tac_as_comment(ins);
 
-        // Assignment
-        if (strcmp(inst->op, "=") == 0)
+        // case 1 : assignment only
+        if (strlen(ins.arg2) == 0)
         {
-            if (idxArg1 != -1) // arg1 is variable
+            // case 1 : variable = constant (for constant: check if positive or negative)
+            if (is_in_data_storage(ins.result) &&
+                (isdigit(ins.arg1[0]) || (ins.arg1[0] == '-' && isdigit(ins.arg1[1]))))
+
             {
-                // Load variable into r1 and store
-                printf("lw r1, %s(r0)\n", inst->arg1);
-                if (idxRes != -1)
-                    printf("sw r1, %s(r0)\n", inst->result);
+                Register *reg = get_available_register();
+                reg->used = 1;
+
+                printf("daddiu %s, r0, %s\n", reg->name, ins.arg1);
+                printf("sw %s, %s(r0)\n", reg->name, ins.result);
+
+                reg->used = 0;
             }
-            else if (inst->arg1 && strlen(inst->arg1) > 0) // constant
+            // case 2 : variable = variable
+            else if (is_in_data_storage(ins.result) && is_in_data_storage(ins.arg1))
             {
-                // Load immediate directly into r1 and store
-                if (idxRes != -1)
+                Register *arg1_val_reg = get_available_register();
+                arg1_val_reg->used = 1;
+
+                printf("lw %s, %s(r0)\n", arg1_val_reg->name, ins.arg1);
+                printf("sw %s, %s(r0)\n", arg1_val_reg->name, ins.result);
+
+                arg1_val_reg->used = 0;
+            }
+            // case 3 : variable = temp
+            else if (is_in_data_storage(ins.result) && is_tac_temporary(ins.arg1))
+            {
+                // find register temp
+                Register *temp_reg = find_temp_reg(ins.arg1);
+
+                printf("sw %s, %s(r0)\n", temp_reg->name, ins.result);
+            }
+            // case 4 : temp = variable
+            else if (is_tac_temporary(ins.result) && is_in_data_storage(ins.arg1))
+            {
+                Register *var_reg = get_available_register();
+                Register *temp_reg = find_temp_reg(ins.result);
+
+                printf("lw %s, %s(r0)\n", var_reg->name, ins.arg1);
+                printf("dadd %s, %s, r0\n", temp_reg->name, var_reg->name);
+
+                temp_reg->used = 1;
+                strcpy(temp_reg->assigned_temp, ins.result);
+            }
+            // case 5 : temp = constant
+            else if (is_tac_temporary(ins.result) && (isdigit(ins.arg1[0] || ins.arg1[0] == '-' && isdigit(ins.arg1[1]))))
+            {
+                Register *temp_reg = get_available_register();
+                temp_reg->used = 1;
+                strcpy(temp_reg->assigned_temp, ins.result);
+
+                printf("daddiu %s, r0, %s\n", temp_reg->name, ins.arg1);
+            }
+            // case 6 : temp = temp
+            else if (is_tac_temporary(ins.result) && is_tac_temporary(ins.arg1))
+            {
+                // Find both temp registers
+                Register *temp_res = find_temp_reg(ins.result);
+                Register *temp_arg1 = find_temp_reg(ins.arg1);
+
+                // If result temp does not yet have a register, allocate one
+                if (!temp_res)
                 {
-                    printf("daddiu r1, r0, %s\n", inst->arg1);
-                    printf("sw r1, %s(r0)\n", inst->result);
+                    temp_res = get_available_register();
+                    temp_res->used = 1;
+                    strcpy(temp_res->assigned_temp, ins.result);
                 }
+
+                // If argument temp does not exist (shouldn’t normally happen, but safe to check)
+                if (!temp_arg1)
+                {
+                    temp_arg1 = get_available_register();
+                    temp_arg1->used = 1;
+                    strcpy(temp_arg1->assigned_temp, ins.arg1);
+                }
+
+                // Move value from arg1 temp into result temp
+                printf("dadd %s, %s, r0\n", temp_res->name, temp_arg1->name);
             }
-            continue;
         }
-
-        // Binary operations (+, -, *, /)
-        char *rd = tempRegs[tempCounter++ % TEMP_COUNT];
-        char *rs = tempRegs[tempCounter++ % TEMP_COUNT];
-        char *rt = tempRegs[tempCounter++ % TEMP_COUNT];
-
-        // Load arg1
-        if (idxArg1 != -1)
-            printf("lw %s, %s(r0)\n", rs, inst->arg1);
-        else if (inst->arg1 && strlen(inst->arg1) > 0)
-            printf("daddiu %s, r0, %s\n", rs, inst->arg1);
-
-        // Load arg2
-        if (idxArg2 != -1)
-            printf("lw %s, %s(r0)\n", rt, inst->arg2);
-        else if (inst->arg2 && strlen(inst->arg2) > 0)
-            printf("daddiu %s, r0, %s\n", rt, inst->arg2);
-
-        // Perform operation
-        if (strcmp(inst->op, "+") == 0)
-            printf("DADD %s, %s, %s\n", rd, rs, rt);
-        else if (strcmp(inst->op, "-") == 0)
-            printf("DSUB %s, %s, %s\n", rd, rs, rt);
-        else if (strcmp(inst->op, "*") == 0)
+        // case 2 : assignment + operation
+        else
         {
-            printf("DMULT %s, %s\n", rs, rt);
-            printf("MFLO %s\n", rd);
-        }
-        else if (strcmp(inst->op, "/") == 0)
-        {
-            printf("DDIV %s, %s\n", rs, rt);
-            printf("MFLO %s\n", rd);
+            Register *reg1 = get_available_register();
+            reg1->used = 1;
+            Register *reg2 = get_available_register();
+            reg2->used = 1;
+            Register *reg3 = get_available_register();
+            reg3->used = 1;
+
+            // variable = constant op constant
+            if (is_in_data_storage(ins.result) && is_digit(ins.arg1) && is_digit(ins.arg2))
+            {
+                printf("daddiu %s, r0, %s\n", reg1->name, ins.arg1);
+                printf("daddiu %s, r0, %s\n", reg2->name, ins.arg2);
+
+                perform_operation(ins.result, ins.arg1, ins.op, ins.arg2, reg1, reg2, reg3, 0);
+            }
+            // variable = variable op variable
+            else if (is_in_data_storage(ins.result) && is_in_data_storage(ins.arg1) && is_in_data_storage(ins.arg2))
+            {
+                printf("lw %s, %s(r0)\n", reg1->name, ins.arg1);
+                printf("lw %s, %s(r0)\n", reg2->name, ins.arg2);
+
+                perform_operation(ins.result, ins.arg1, ins.op, ins.arg2, reg1, reg2, reg3, 0);
+            }
+            // variable = variable op constant
+            else if (is_in_data_storage(ins.result) && is_in_data_storage(ins.arg1) && is_digit(ins.arg2))
+            {
+                printf("lw %s, %s(r0)\n", reg1->name, ins.arg1);
+                printf("daddiu %s, r0, %s\n", reg2->name, ins.arg2);
+
+                perform_operation(ins.result, ins.arg1, ins.op, ins.arg2, reg1, reg2, reg3, 0);
+            }
+            // variable = constant op variable
+            else if (is_in_data_storage(ins.result) && is_digit(ins.arg1) && is_in_data_storage(ins.arg2))
+            {
+                printf("daddiu %s, r0, %s\n", reg1->name, ins.arg1);
+                printf("lw %s, %s(r0)\n", reg2->name, ins.arg2);
+
+                perform_operation(ins.result, ins.arg1, ins.op, ins.arg2, reg1, reg2, reg3, 0);
+            }
+            // variable = temp op temp
+            else if (is_in_data_storage(ins.result) && is_tac_temporary(ins.arg1) && is_tac_temporary(ins.arg2))
+            {
+                reg1->used = 0;
+                reg2->used = 0;
+                reg3->used = 0;
+
+                reg1 = find_temp_reg(ins.arg1);
+                reg2 = find_temp_reg(ins.arg2);
+                reg3 = get_available_register();
+
+                perform_operation(ins.result, ins.arg1, ins.op, ins.arg2, reg1, reg2, reg3, 0);
+            }
+            // variable = temp op variable
+            else if (is_in_data_storage(ins.result) && is_tac_temporary(ins.arg1) && is_in_data_storage(ins.arg2))
+            {
+                reg1->used = 0;
+                reg2->used = 0;
+                reg3->used = 0;
+
+                reg1 = find_temp_reg(ins.arg1);
+                reg1->used = 1;
+                reg2 = get_available_register();
+                reg2->used = 1;
+                reg3 = get_available_register();
+                reg3->used = 1;
+
+                printf("lw %s, %s(r0)\n", reg2->name, ins.arg2);
+
+                perform_operation(ins.result, ins.arg1, ins.op, ins.arg2, reg1, reg2, reg3, 0);
+            }
+            // variable = variable op temp
+            else if (is_in_data_storage(ins.result) && is_in_data_storage(ins.arg1) && is_tac_temporary(ins.arg2))
+            {
+                reg1->used = 0;
+                reg2->used = 0;
+                reg3->used = 0;
+
+                reg1 = get_available_register();
+                reg1->used = 1;
+                reg2 = find_temp_reg(ins.arg2);
+                reg2->used = 1;
+                reg3 = get_available_register();
+                reg3->used = 1;
+
+                printf("lw %s, %s(r0)\n", reg1->name, ins.arg1);
+
+                perform_operation(ins.result, ins.arg1, ins.op, ins.arg2, reg1, reg2, reg3, 0);
+            }
+            // variable = temp op constant
+            else if (is_in_data_storage(ins.result) && is_tac_temporary(ins.arg1) && is_digit(ins.arg2))
+            {
+                reg1->used = 0;
+                reg2->used = 0;
+                reg3->used = 0;
+
+                reg1 = find_temp_reg(ins.arg1);
+                reg1->used = 1;
+                reg2 = get_available_register();
+                reg2->used = 1;
+                reg3 = get_available_register();
+                reg3->used = 1;
+
+                printf("daddiu %s, r0, %s\n", reg2->name, ins.arg2);
+
+                perform_operation(ins.result, ins.arg1, ins.op, ins.arg2, reg1, reg2, reg3, 0);
+            }
+            // variable = constant op temp
+            else if (is_in_data_storage(ins.result) && is_digit(ins.arg1) && is_tac_temporary(ins.arg2))
+            {
+                reg1->used = 0;
+                reg2->used = 0;
+                reg3->used = 0;
+
+                reg1 = get_available_register();
+                reg1->used = 1;
+                reg2 = find_temp_reg(ins.arg2);
+                reg2->used = 1;
+                reg3 = get_available_register();
+                reg3->used = 1;
+
+                printf("daddiu %s, r0, %s\n", reg1->name, ins.arg1);
+
+                perform_operation(ins.result, ins.arg1, ins.op, ins.arg2, reg1, reg2, reg3, 0);
+            }
+            // temp = constant op constant
+            else if (is_tac_temporary(ins.result) && is_digit(ins.arg1) && is_digit(ins.arg2))
+            {
+                printf("daddiu %s, r0, %s\n", reg1->name, ins.arg1);
+                printf("daddiu %s, r0, %s\n", reg2->name, ins.arg2);
+
+                perform_operation(ins.result, ins.arg1, ins.op, ins.arg2, reg1, reg2, reg3, 1);
+            }
+            // temp = constant op temp
+            else if (is_tac_temporary(ins.result) && is_digit(ins.arg1) && is_tac_temporary(ins.arg2))
+            {
+                reg1->used = 0;
+                reg2->used = 0;
+                reg3->used = 0;
+
+                reg1 = get_available_register();
+                reg1->used = 1;
+                reg2 = find_temp_reg(ins.arg2);
+                reg2->used = 1;
+                reg3 = get_available_register();
+                reg3->used = 1;
+
+                printf("daddiu %s, r0, %s\n", reg1->name, ins.arg1);
+
+                perform_operation(ins.result, ins.arg1, ins.op, ins.arg2, reg1, reg2, reg3, 1);
+            }
+            // temp = temp op constant
+            else if (is_tac_temporary(ins.result) && is_tac_temporary(ins.arg1) && is_digit(ins.arg2))
+            {
+                reg1->used = 0;
+                reg2->used = 0;
+                reg3->used = 0;
+
+                reg1 = find_temp_reg(ins.arg1);
+                reg1->used = 1;
+                reg2 = get_available_register();
+                reg2->used = 1;
+                reg3 = get_available_register();
+                reg3->used = 1;
+
+                printf("daddiu %s, r0, %s\n", reg2->name, ins.arg2);
+
+                perform_operation(ins.result, ins.arg1, ins.op, ins.arg2, reg1, reg2, reg3, 1);
+            }
+            // temp = constant op variable
+            else if (is_tac_temporary(ins.result) && is_digit(ins.arg1) && is_in_data_storage(ins.arg2))
+            {
+                printf("daddiu %s, r0, %s\n", reg1->name, ins.arg1);
+                printf("lw %s, %s(r0)\n", reg2->name, ins.arg2);
+
+                perform_operation(ins.result, ins.arg1, ins.op, ins.arg2, reg1, reg2, reg3, 1);
+            }
+            // temp = variable op constant
+            else if (is_tac_temporary(ins.result) && is_in_data_storage(ins.arg1) && is_digit(ins.arg2))
+            {
+                printf("lw %s, %s(r0)\n", reg1->name, ins.arg1);
+                printf("daddiu %s, r0, %s\n", reg2->name, ins.arg2);
+
+                perform_operation(ins.result, ins.arg1, ins.op, ins.arg2, reg1, reg2, reg3, 1);
+            }
+            // temp = variable op variable
+            else if (is_tac_temporary(ins.result) && is_in_data_storage(ins.arg1) && is_in_data_storage(ins.arg2))
+            {
+                printf("lw %s, %s(r0)\n", reg1->name, ins.arg1);
+                printf("lw %s, %s(r0)\n", reg2->name, ins.arg2);
+
+                perform_operation(ins.result, ins.arg1, ins.op, ins.arg2, reg1, reg2, reg3, 1);
+            }
+            // temp = temp op variable
+            else if (is_tac_temporary(ins.result) && is_tac_temporary(ins.arg1) && is_in_data_storage(ins.arg2))
+            {
+                reg1->used = 0;
+                reg2->used = 0;
+                reg3->used = 0;
+
+                reg1 = find_temp_reg(ins.arg1);
+                reg1->used = 1;
+                reg2 = get_available_register();
+                reg2->used = 1;
+                reg3 = get_available_register();
+                reg3->used = 1;
+
+                printf("lw %s, %s(r0)\n", reg2->name, ins.arg2);
+
+                perform_operation(ins.result, ins.arg1, ins.op, ins.arg2, reg1, reg2, reg3, 1);
+            }
+            // temp = variable op temp
+            else if (is_tac_temporary(ins.result) && is_in_data_storage(ins.arg1) && is_tac_temporary(ins.arg2))
+            {
+                reg1->used = 0;
+                reg2->used = 0;
+                reg3->used = 0;
+
+                reg1 = get_available_register();
+                reg1->used = 1;
+                reg2 = find_temp_reg(ins.arg2);
+                reg2->used = 1;
+                reg3 = get_available_register();
+                reg3->used = 1;
+
+                printf("lw %s, %s(r0)\n", reg1->name, ins.arg1);
+
+                perform_operation(ins.result, ins.arg1, ins.op, ins.arg2, reg1, reg2, reg3, 1);
+            }
+            // temp = temp op temp
+            else if (is_tac_temporary(ins.result) && is_tac_temporary(ins.arg1) && is_tac_temporary(ins.arg2))
+            {
+                reg1->used = 0;
+                reg2->used = 0;
+                reg3->used = 0;
+
+                reg1 = find_temp_reg(ins.arg1);
+                reg1->used = 1;
+                reg2 = find_temp_reg(ins.arg2);
+                reg2->used = 1;
+                reg3 = get_available_register();
+                reg3->used = 1;
+
+                perform_operation(ins.result, ins.arg1, ins.op, ins.arg2, reg1, reg2, reg3, 1);
+            }
         }
 
-        if (idxRes != -1)
-            printf("sw %s, %s(r0)\n", rd, inst->result);
+        printf("\n");
     }
+
+    // for (int i = 0; i < MAX_REGISTERS; i++)
+    // {
+    //     if (registers[i].used)
+    //         printf("%s (%s) = %s\n", registers[i].name, (registers[i].used ? "used" : "unused"), registers[i].assigned_temp);
+    // }
 }
 
-// Public function
 void generate_target_code()
 {
-    tempCounter = 0;
-    generateDataSection();
-    generateCodeSection();
+    initialize_registers();
+    generate_data_section();
+    generate_code_section();
+
+    // display_data_storage();
 }

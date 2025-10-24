@@ -273,9 +273,4 @@ void generate_intermediate_code(ASTNode *root)
     displayTAC();
     removeRedundantTemporaries();
     displayOptimizedTAC();
-
-    if (code)
-        free(code);
-    if (optimizedCode)
-        free(optimizedCode);
 }
