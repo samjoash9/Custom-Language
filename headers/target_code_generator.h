@@ -11,6 +11,7 @@
 #define MAX_REGISTER_NAME_LENGTH 5
 #define MAX_REGISTERS 30
 #define MAX_TAC 256
+#define MAX_ASSEMBLY_CODE 2048 // Maximum total assembly output size
 
 // 2D array for storage of Data section
 typedef struct
@@ -25,7 +26,14 @@ typedef struct
     char assigned_temp[MAX_REGISTER_NAME_LENGTH];
 } Register;
 
+// Struct to hold the generated assembly output
+typedef struct
+{
+    char assembly[MAX_ASSEMBLY_CODE];
+} ASSEMBLY;
+
 extern int data_count;
+extern ASSEMBLY finalAssembly;
 
 void initialize_registers();
 void generate_target_code();
