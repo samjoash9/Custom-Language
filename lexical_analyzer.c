@@ -59,22 +59,41 @@ void get_token_as_dt_or_id(const char *source, char *target, int *s_iterator, in
 void get_token_as_value(const char *source, char *target, int *s_iterator, int *t_iterator)
 {
     *t_iterator = 0;
-    // Optional sign (+ or -)
+    int start = *s_iterator;
+
+    // Handle optional sign
+    char sign = '\0';
     if (source[*s_iterator] == '+' || source[*s_iterator] == '-')
     {
-        if (*t_iterator < MAX_BUFFER_LEN - 1)
-            target[(*t_iterator)++] = source[*s_iterator];
+        sign = source[*s_iterator];
         (*s_iterator)++;
     }
 
+    // Collect digits
     while (isdigit((unsigned char)source[*s_iterator]))
     {
         if (*t_iterator < MAX_BUFFER_LEN - 1)
             target[(*t_iterator)++] = source[*s_iterator];
         (*s_iterator)++;
     }
+
     target[*t_iterator] = '\0';
     (*s_iterator)--; // backtrack one since for-loop will ++
+
+    // Normalize: +2 → 2 (ignore unary plus)
+    // Keep negative numbers as-is (-2)
+    if (sign == '+')
+    {
+        // nothing to do — target already has digits only
+    }
+    else if (sign == '-')
+    {
+        // Prepend '-' manually
+        char temp[MAX_BUFFER_LEN];
+        snprintf(temp, sizeof(temp), "-%s", target);
+        strncpy(target, temp, MAX_BUFFER_LEN - 1);
+        target[MAX_BUFFER_LEN - 1] = '\0';
+    }
 }
 
 // Reset temporary token buffer
@@ -194,9 +213,11 @@ void lexer(const char *src)
             continue;
         }
 
-        // Integer literal
+        // Integer literal (handle optional sign only if at start or after '(' or '=')
         if (isdigit((unsigned char)c) ||
-            ((c == '+' || c == '-') && i + 1 < len && isdigit((unsigned char)src[i + 1])))
+            ((c == '+' || c == '-') &&
+             i + 1 < len && isdigit((unsigned char)src[i + 1]) &&
+             (i == 0 || src[i - 1] == '(' || src[i - 1] == '=' || isspace((unsigned char)src[i - 1]))))
         {
             get_token_as_value(src, temp_token, &i, &t_iter);
             add_to_tokens(temp_token, TOK_INT_LITERAL);

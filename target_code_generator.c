@@ -146,7 +146,7 @@ void perform_operation(char *result, char *arg1, char *op, char *arg2, Register 
 
     if (!is_for_temporary)
     {
-        printf("sw %s, %s(r0)\n", reg3->name, result);
+        printf("sd %s, %s(r0)\n", reg3->name, result);
 
         // reset registers
         initialize_registers();
@@ -176,7 +176,7 @@ void generate_code_section()
                 reg->used = 1;
 
                 printf("daddiu %s, r0, %s\n", reg->name, ins.arg1);
-                printf("sw %s, %s(r0)\n", reg->name, ins.result);
+                printf("sd %s, %s(r0)\n", reg->name, ins.result);
 
                 reg->used = 0;
             }
@@ -186,8 +186,8 @@ void generate_code_section()
                 Register *arg1_val_reg = get_available_register();
                 arg1_val_reg->used = 1;
 
-                printf("lw %s, %s(r0)\n", arg1_val_reg->name, ins.arg1);
-                printf("sw %s, %s(r0)\n", arg1_val_reg->name, ins.result);
+                printf("ld %s, %s(r0)\n", arg1_val_reg->name, ins.arg1);
+                printf("sd %s, %s(r0)\n", arg1_val_reg->name, ins.result);
 
                 arg1_val_reg->used = 0;
             }
@@ -197,7 +197,7 @@ void generate_code_section()
                 // find register temp
                 Register *temp_reg = find_temp_reg(ins.arg1);
 
-                printf("sw %s, %s(r0)\n", temp_reg->name, ins.result);
+                printf("sd %s, %s(r0)\n", temp_reg->name, ins.result);
             }
             // case 4 : temp = variable
             else if (is_tac_temporary(ins.result) && is_in_data_storage(ins.arg1))
@@ -205,7 +205,7 @@ void generate_code_section()
                 Register *var_reg = get_available_register();
                 Register *temp_reg = find_temp_reg(ins.result);
 
-                printf("lw %s, %s(r0)\n", var_reg->name, ins.arg1);
+                printf("ld %s, %s(r0)\n", var_reg->name, ins.arg1);
                 printf("dadd %s, %s, r0\n", temp_reg->name, var_reg->name);
 
                 temp_reg->used = 1;
@@ -268,15 +268,15 @@ void generate_code_section()
             // variable = variable op variable
             else if (is_in_data_storage(ins.result) && is_in_data_storage(ins.arg1) && is_in_data_storage(ins.arg2))
             {
-                printf("lw %s, %s(r0)\n", reg1->name, ins.arg1);
-                printf("lw %s, %s(r0)\n", reg2->name, ins.arg2);
+                printf("ld %s, %s(r0)\n", reg1->name, ins.arg1);
+                printf("ld %s, %s(r0)\n", reg2->name, ins.arg2);
 
                 perform_operation(ins.result, ins.arg1, ins.op, ins.arg2, reg1, reg2, reg3, 0);
             }
             // variable = variable op constant
             else if (is_in_data_storage(ins.result) && is_in_data_storage(ins.arg1) && is_digit(ins.arg2))
             {
-                printf("lw %s, %s(r0)\n", reg1->name, ins.arg1);
+                printf("ld %s, %s(r0)\n", reg1->name, ins.arg1);
                 printf("daddiu %s, r0, %s\n", reg2->name, ins.arg2);
 
                 perform_operation(ins.result, ins.arg1, ins.op, ins.arg2, reg1, reg2, reg3, 0);
@@ -285,7 +285,7 @@ void generate_code_section()
             else if (is_in_data_storage(ins.result) && is_digit(ins.arg1) && is_in_data_storage(ins.arg2))
             {
                 printf("daddiu %s, r0, %s\n", reg1->name, ins.arg1);
-                printf("lw %s, %s(r0)\n", reg2->name, ins.arg2);
+                printf("ld %s, %s(r0)\n", reg2->name, ins.arg2);
 
                 perform_operation(ins.result, ins.arg1, ins.op, ins.arg2, reg1, reg2, reg3, 0);
             }
@@ -316,7 +316,7 @@ void generate_code_section()
                 reg3 = get_available_register();
                 reg3->used = 1;
 
-                printf("lw %s, %s(r0)\n", reg2->name, ins.arg2);
+                printf("ld %s, %s(r0)\n", reg2->name, ins.arg2);
 
                 perform_operation(ins.result, ins.arg1, ins.op, ins.arg2, reg1, reg2, reg3, 0);
             }
@@ -334,7 +334,7 @@ void generate_code_section()
                 reg3 = get_available_register();
                 reg3->used = 1;
 
-                printf("lw %s, %s(r0)\n", reg1->name, ins.arg1);
+                printf("ld %s, %s(r0)\n", reg1->name, ins.arg1);
 
                 perform_operation(ins.result, ins.arg1, ins.op, ins.arg2, reg1, reg2, reg3, 0);
             }
@@ -422,14 +422,14 @@ void generate_code_section()
             else if (is_tac_temporary(ins.result) && is_digit(ins.arg1) && is_in_data_storage(ins.arg2))
             {
                 printf("daddiu %s, r0, %s\n", reg1->name, ins.arg1);
-                printf("lw %s, %s(r0)\n", reg2->name, ins.arg2);
+                printf("ld %s, %s(r0)\n", reg2->name, ins.arg2);
 
                 perform_operation(ins.result, ins.arg1, ins.op, ins.arg2, reg1, reg2, reg3, 1);
             }
             // temp = variable op constant
             else if (is_tac_temporary(ins.result) && is_in_data_storage(ins.arg1) && is_digit(ins.arg2))
             {
-                printf("lw %s, %s(r0)\n", reg1->name, ins.arg1);
+                printf("ld %s, %s(r0)\n", reg1->name, ins.arg1);
                 printf("daddiu %s, r0, %s\n", reg2->name, ins.arg2);
 
                 perform_operation(ins.result, ins.arg1, ins.op, ins.arg2, reg1, reg2, reg3, 1);
@@ -437,8 +437,8 @@ void generate_code_section()
             // temp = variable op variable
             else if (is_tac_temporary(ins.result) && is_in_data_storage(ins.arg1) && is_in_data_storage(ins.arg2))
             {
-                printf("lw %s, %s(r0)\n", reg1->name, ins.arg1);
-                printf("lw %s, %s(r0)\n", reg2->name, ins.arg2);
+                printf("ld %s, %s(r0)\n", reg1->name, ins.arg1);
+                printf("ld %s, %s(r0)\n", reg2->name, ins.arg2);
 
                 perform_operation(ins.result, ins.arg1, ins.op, ins.arg2, reg1, reg2, reg3, 1);
             }
@@ -456,7 +456,7 @@ void generate_code_section()
                 reg3 = get_available_register();
                 reg3->used = 1;
 
-                printf("lw %s, %s(r0)\n", reg2->name, ins.arg2);
+                printf("ld %s, %s(r0)\n", reg2->name, ins.arg2);
 
                 perform_operation(ins.result, ins.arg1, ins.op, ins.arg2, reg1, reg2, reg3, 1);
             }
@@ -474,7 +474,7 @@ void generate_code_section()
                 reg3 = get_available_register();
                 reg3->used = 1;
 
-                printf("lw %s, %s(r0)\n", reg1->name, ins.arg1);
+                printf("ld %s, %s(r0)\n", reg1->name, ins.arg1);
 
                 perform_operation(ins.result, ins.arg1, ins.op, ins.arg2, reg1, reg2, reg3, 1);
             }
