@@ -4,6 +4,26 @@ Register registers[MAX_REGISTERS];
 Data data_storage[MAX_DATA];
 int data_count = 0;
 
+int assembly_code_count = 0;
+ASSEMBLY assembly_code[MAX_ASSEMBLY_CODE];
+
+void add_assembly_line(const char *format, ...)
+{
+    if (assembly_code_count >= MAX_ASSEMBLY_CODE)
+        return;
+
+    va_list args;
+    va_start(args, format);
+    vsprintf(assembly_code[assembly_code_count++].assembly, format, args);
+    va_end(args);
+}
+
+void display_assembly_code()
+{
+    for (int i = 0; i < assembly_code_count; i++)
+        printf("%s", assembly_code[i].assembly);
+}
+
 void initialize_registers()
 {
     for (int i = 0; i < MAX_REGISTERS; i++)
@@ -80,11 +100,11 @@ Register *find_temp_reg(char *temp)
 
 void generate_data_section()
 {
-    printf(".data\n");
+    add_assembly_line(".data\n");
 
     for (int i = 0; i < symbol_count; i++)
     {
-        printf("%s: .word64 0\n", symbol_table[i].name);
+        add_assembly_line("%s: .word64 0\n", symbol_table[i].name);
         add_to_data_storage(symbol_table[i].name);
     }
 }
@@ -117,9 +137,9 @@ int is_digit(char *value)
 void display_tac_as_comment(TACInstruction ins)
 {
     if (strlen(ins.arg2) == 0)
-        printf("; %s = %s\n", ins.result, ins.arg1);
+        add_assembly_line("; %s = %s\n", ins.result, ins.arg1);
     else
-        printf("; %s = %s %s %s\n", ins.result, ins.arg1, ins.op, ins.arg2);
+        add_assembly_line("; %s = %s %s %s\n", ins.result, ins.arg1, ins.op, ins.arg2);
 }
 
 void perform_operation(char *result, char *arg1, char *op, char *arg2, Register *reg1, Register *reg2, Register *reg3, int is_for_temporary)
@@ -127,26 +147,26 @@ void perform_operation(char *result, char *arg1, char *op, char *arg2, Register 
     // determine operation
     if (strcmp(op, "+") == 0)
     {
-        printf("dadd %s, %s, %s\n", reg3->name, reg1->name, reg2->name);
+        add_assembly_line("dadd %s, %s, %s\n", reg3->name, reg1->name, reg2->name);
     }
     else if (strcmp(op, "-") == 0)
     {
-        printf("dsub %s, %s, %s\n", reg3->name, reg1->name, reg2->name);
+        add_assembly_line("dsub %s, %s, %s\n", reg3->name, reg1->name, reg2->name);
     }
     else if (strcmp(op, "*") == 0)
     {
-        printf("dmult %s, %s\n", reg1->name, reg2->name);
-        printf("mflo %s\n", reg3->name);
+        add_assembly_line("dmult %s, %s\n", reg1->name, reg2->name);
+        add_assembly_line("mflo %s\n", reg3->name);
     }
     else if (strcmp(op, "/") == 0)
     {
-        printf("ddiv %s, %s\n", reg1->name, reg2->name);
-        printf("mflo %s\n", reg3->name);
+        add_assembly_line("ddiv %s, %s\n", reg1->name, reg2->name);
+        add_assembly_line("mflo %s\n", reg3->name);
     }
 
     if (!is_for_temporary)
     {
-        printf("sd %s, %s(r0)\n", reg3->name, result);
+        add_assembly_line("sd %s, %s(r0)\n", reg3->name, result);
 
         // reset registers
         initialize_registers();
@@ -157,7 +177,7 @@ void perform_operation(char *result, char *arg1, char *op, char *arg2, Register 
 
 void generate_code_section()
 {
-    printf("\n.code\n");
+    add_assembly_line("\n.code\n");
 
     for (int i = 0; i < optimizedCount; i++)
     {
@@ -175,8 +195,8 @@ void generate_code_section()
                 Register *reg = get_available_register();
                 reg->used = 1;
 
-                printf("daddiu %s, r0, %s\n", reg->name, ins.arg1);
-                printf("sd %s, %s(r0)\n", reg->name, ins.result);
+                add_assembly_line("daddiu %s, r0, %s\n", reg->name, ins.arg1);
+                add_assembly_line("sd %s, %s(r0)\n", reg->name, ins.result);
 
                 reg->used = 0;
             }
@@ -186,8 +206,8 @@ void generate_code_section()
                 Register *arg1_val_reg = get_available_register();
                 arg1_val_reg->used = 1;
 
-                printf("ld %s, %s(r0)\n", arg1_val_reg->name, ins.arg1);
-                printf("sd %s, %s(r0)\n", arg1_val_reg->name, ins.result);
+                add_assembly_line("ld %s, %s(r0)\n", arg1_val_reg->name, ins.arg1);
+                add_assembly_line("sd %s, %s(r0)\n", arg1_val_reg->name, ins.result);
 
                 arg1_val_reg->used = 0;
             }
@@ -197,7 +217,7 @@ void generate_code_section()
                 // find register temp
                 Register *temp_reg = find_temp_reg(ins.arg1);
 
-                printf("sd %s, %s(r0)\n", temp_reg->name, ins.result);
+                add_assembly_line("sd %s, %s(r0)\n", temp_reg->name, ins.result);
             }
             // case 4 : temp = variable
             else if (is_tac_temporary(ins.result) && is_in_data_storage(ins.arg1))
@@ -205,8 +225,8 @@ void generate_code_section()
                 Register *var_reg = get_available_register();
                 Register *temp_reg = find_temp_reg(ins.result);
 
-                printf("ld %s, %s(r0)\n", var_reg->name, ins.arg1);
-                printf("dadd %s, %s, r0\n", temp_reg->name, var_reg->name);
+                add_assembly_line("ld %s, %s(r0)\n", var_reg->name, ins.arg1);
+                add_assembly_line("dadd %s, %s, r0\n", temp_reg->name, var_reg->name);
 
                 temp_reg->used = 1;
                 strcpy(temp_reg->assigned_temp, ins.result);
@@ -218,7 +238,7 @@ void generate_code_section()
                 temp_reg->used = 1;
                 strcpy(temp_reg->assigned_temp, ins.result);
 
-                printf("daddiu %s, r0, %s\n", temp_reg->name, ins.arg1);
+                add_assembly_line("daddiu %s, r0, %s\n", temp_reg->name, ins.arg1);
             }
             // case 6 : temp = temp
             else if (is_tac_temporary(ins.result) && is_tac_temporary(ins.arg1))
@@ -244,7 +264,7 @@ void generate_code_section()
                 }
 
                 // Move value from arg1 temp into result temp
-                printf("dadd %s, %s, r0\n", temp_res->name, temp_arg1->name);
+                add_assembly_line("dadd %s, %s, r0\n", temp_res->name, temp_arg1->name);
             }
         }
         // case 2 : assignment + operation
@@ -260,32 +280,32 @@ void generate_code_section()
             // variable = constant op constant
             if (is_in_data_storage(ins.result) && is_digit(ins.arg1) && is_digit(ins.arg2))
             {
-                printf("daddiu %s, r0, %s\n", reg1->name, ins.arg1);
-                printf("daddiu %s, r0, %s\n", reg2->name, ins.arg2);
+                add_assembly_line("daddiu %s, r0, %s\n", reg1->name, ins.arg1);
+                add_assembly_line("daddiu %s, r0, %s\n", reg2->name, ins.arg2);
 
                 perform_operation(ins.result, ins.arg1, ins.op, ins.arg2, reg1, reg2, reg3, 0);
             }
             // variable = variable op variable
             else if (is_in_data_storage(ins.result) && is_in_data_storage(ins.arg1) && is_in_data_storage(ins.arg2))
             {
-                printf("ld %s, %s(r0)\n", reg1->name, ins.arg1);
-                printf("ld %s, %s(r0)\n", reg2->name, ins.arg2);
+                add_assembly_line("ld %s, %s(r0)\n", reg1->name, ins.arg1);
+                add_assembly_line("ld %s, %s(r0)\n", reg2->name, ins.arg2);
 
                 perform_operation(ins.result, ins.arg1, ins.op, ins.arg2, reg1, reg2, reg3, 0);
             }
             // variable = variable op constant
             else if (is_in_data_storage(ins.result) && is_in_data_storage(ins.arg1) && is_digit(ins.arg2))
             {
-                printf("ld %s, %s(r0)\n", reg1->name, ins.arg1);
-                printf("daddiu %s, r0, %s\n", reg2->name, ins.arg2);
+                add_assembly_line("ld %s, %s(r0)\n", reg1->name, ins.arg1);
+                add_assembly_line("daddiu %s, r0, %s\n", reg2->name, ins.arg2);
 
                 perform_operation(ins.result, ins.arg1, ins.op, ins.arg2, reg1, reg2, reg3, 0);
             }
             // variable = constant op variable
             else if (is_in_data_storage(ins.result) && is_digit(ins.arg1) && is_in_data_storage(ins.arg2))
             {
-                printf("daddiu %s, r0, %s\n", reg1->name, ins.arg1);
-                printf("ld %s, %s(r0)\n", reg2->name, ins.arg2);
+                add_assembly_line("daddiu %s, r0, %s\n", reg1->name, ins.arg1);
+                add_assembly_line("ld %s, %s(r0)\n", reg2->name, ins.arg2);
 
                 perform_operation(ins.result, ins.arg1, ins.op, ins.arg2, reg1, reg2, reg3, 0);
             }
@@ -316,7 +336,7 @@ void generate_code_section()
                 reg3 = get_available_register();
                 reg3->used = 1;
 
-                printf("ld %s, %s(r0)\n", reg2->name, ins.arg2);
+                add_assembly_line("ld %s, %s(r0)\n", reg2->name, ins.arg2);
 
                 perform_operation(ins.result, ins.arg1, ins.op, ins.arg2, reg1, reg2, reg3, 0);
             }
@@ -334,7 +354,7 @@ void generate_code_section()
                 reg3 = get_available_register();
                 reg3->used = 1;
 
-                printf("ld %s, %s(r0)\n", reg1->name, ins.arg1);
+                add_assembly_line("ld %s, %s(r0)\n", reg1->name, ins.arg1);
 
                 perform_operation(ins.result, ins.arg1, ins.op, ins.arg2, reg1, reg2, reg3, 0);
             }
@@ -352,7 +372,7 @@ void generate_code_section()
                 reg3 = get_available_register();
                 reg3->used = 1;
 
-                printf("daddiu %s, r0, %s\n", reg2->name, ins.arg2);
+                add_assembly_line("daddiu %s, r0, %s\n", reg2->name, ins.arg2);
 
                 perform_operation(ins.result, ins.arg1, ins.op, ins.arg2, reg1, reg2, reg3, 0);
             }
@@ -370,15 +390,15 @@ void generate_code_section()
                 reg3 = get_available_register();
                 reg3->used = 1;
 
-                printf("daddiu %s, r0, %s\n", reg1->name, ins.arg1);
+                add_assembly_line("daddiu %s, r0, %s\n", reg1->name, ins.arg1);
 
                 perform_operation(ins.result, ins.arg1, ins.op, ins.arg2, reg1, reg2, reg3, 0);
             }
             // temp = constant op constant
             else if (is_tac_temporary(ins.result) && is_digit(ins.arg1) && is_digit(ins.arg2))
             {
-                printf("daddiu %s, r0, %s\n", reg1->name, ins.arg1);
-                printf("daddiu %s, r0, %s\n", reg2->name, ins.arg2);
+                add_assembly_line("daddiu %s, r0, %s\n", reg1->name, ins.arg1);
+                add_assembly_line("daddiu %s, r0, %s\n", reg2->name, ins.arg2);
 
                 perform_operation(ins.result, ins.arg1, ins.op, ins.arg2, reg1, reg2, reg3, 1);
             }
@@ -396,7 +416,7 @@ void generate_code_section()
                 reg3 = get_available_register();
                 reg3->used = 1;
 
-                printf("daddiu %s, r0, %s\n", reg1->name, ins.arg1);
+                add_assembly_line("daddiu %s, r0, %s\n", reg1->name, ins.arg1);
 
                 perform_operation(ins.result, ins.arg1, ins.op, ins.arg2, reg1, reg2, reg3, 1);
             }
@@ -414,31 +434,31 @@ void generate_code_section()
                 reg3 = get_available_register();
                 reg3->used = 1;
 
-                printf("daddiu %s, r0, %s\n", reg2->name, ins.arg2);
+                add_assembly_line("daddiu %s, r0, %s\n", reg2->name, ins.arg2);
 
                 perform_operation(ins.result, ins.arg1, ins.op, ins.arg2, reg1, reg2, reg3, 1);
             }
             // temp = constant op variable
             else if (is_tac_temporary(ins.result) && is_digit(ins.arg1) && is_in_data_storage(ins.arg2))
             {
-                printf("daddiu %s, r0, %s\n", reg1->name, ins.arg1);
-                printf("ld %s, %s(r0)\n", reg2->name, ins.arg2);
+                add_assembly_line("daddiu %s, r0, %s\n", reg1->name, ins.arg1);
+                add_assembly_line("ld %s, %s(r0)\n", reg2->name, ins.arg2);
 
                 perform_operation(ins.result, ins.arg1, ins.op, ins.arg2, reg1, reg2, reg3, 1);
             }
             // temp = variable op constant
             else if (is_tac_temporary(ins.result) && is_in_data_storage(ins.arg1) && is_digit(ins.arg2))
             {
-                printf("ld %s, %s(r0)\n", reg1->name, ins.arg1);
-                printf("daddiu %s, r0, %s\n", reg2->name, ins.arg2);
+                add_assembly_line("ld %s, %s(r0)\n", reg1->name, ins.arg1);
+                add_assembly_line("daddiu %s, r0, %s\n", reg2->name, ins.arg2);
 
                 perform_operation(ins.result, ins.arg1, ins.op, ins.arg2, reg1, reg2, reg3, 1);
             }
             // temp = variable op variable
             else if (is_tac_temporary(ins.result) && is_in_data_storage(ins.arg1) && is_in_data_storage(ins.arg2))
             {
-                printf("ld %s, %s(r0)\n", reg1->name, ins.arg1);
-                printf("ld %s, %s(r0)\n", reg2->name, ins.arg2);
+                add_assembly_line("ld %s, %s(r0)\n", reg1->name, ins.arg1);
+                add_assembly_line("ld %s, %s(r0)\n", reg2->name, ins.arg2);
 
                 perform_operation(ins.result, ins.arg1, ins.op, ins.arg2, reg1, reg2, reg3, 1);
             }
@@ -456,7 +476,7 @@ void generate_code_section()
                 reg3 = get_available_register();
                 reg3->used = 1;
 
-                printf("ld %s, %s(r0)\n", reg2->name, ins.arg2);
+                add_assembly_line("ld %s, %s(r0)\n", reg2->name, ins.arg2);
 
                 perform_operation(ins.result, ins.arg1, ins.op, ins.arg2, reg1, reg2, reg3, 1);
             }
@@ -474,7 +494,7 @@ void generate_code_section()
                 reg3 = get_available_register();
                 reg3->used = 1;
 
-                printf("ld %s, %s(r0)\n", reg1->name, ins.arg1);
+                add_assembly_line("ld %s, %s(r0)\n", reg1->name, ins.arg1);
 
                 perform_operation(ins.result, ins.arg1, ins.op, ins.arg2, reg1, reg2, reg3, 1);
             }
@@ -496,7 +516,7 @@ void generate_code_section()
             }
         }
 
-        printf("\n");
+        add_assembly_line("\n");
     }
 
     // for (int i = 0; i < MAX_REGISTERS; i++)
@@ -513,4 +533,5 @@ void generate_target_code()
     generate_code_section();
 
     // display_data_storage();
+    display_assembly_code();
 }
