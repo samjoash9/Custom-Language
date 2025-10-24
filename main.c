@@ -9,6 +9,7 @@
 #include "headers/semantic_analyzer.h"
 #include "headers/intermediate_code_generator.h"
 #include "headers/target_code_generator.h"
+#include "headers/machine_code_generator.h"
 
 int main()
 {
@@ -51,8 +52,10 @@ int main()
     generate_intermediate_code(syntax_tree);
 
     // STEP 5 : TARGET CODE GENERATOR (MIPS64)
-    printf("\n===== MIPS64 TARGET CODE =====\n");
     generate_target_code();
+
+    // STEP 6 : MACHINE CODE GENERATOR
+    generate_machine_code();
 
     // === SYMBOL TABLE ===
     printf("\n\n===== SYMBOL TABLE (AFTER ANALYSIS) =====\n");

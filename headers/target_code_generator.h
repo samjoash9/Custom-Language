@@ -34,7 +34,7 @@ typedef struct
     char assembly[MAX_ASSEMBLY_LINE];
 } ASSEMBLY;
 
-extern int data_count;
+extern int assembly_code_count;
 extern ASSEMBLY assembly_code[MAX_ASSEMBLY_CODE];
 
 void initialize_registers();

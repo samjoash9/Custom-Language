@@ -1,4 +1,6 @@
-int arti = -50;
-int i = 0;
-arti += 5;
-i = (105 + arti) / (i+2);
+int i = -5;
+
+
+int b = 10/i;
+
+b = b * 2;

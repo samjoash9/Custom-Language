@@ -19,9 +19,11 @@ void add_assembly_line(const char *format, ...)
 }
 
 void display_assembly_code()
-{
+{   
+    printf("===== ASSEMBLY CODE =====\n");
     for (int i = 0; i < assembly_code_count; i++)
         printf("%s", assembly_code[i].assembly);
+    printf("===== ASSEMBLY CODE END =====\n\n");
 }
 
 void initialize_registers()
@@ -147,7 +149,7 @@ void perform_operation(char *result, char *arg1, char *op, char *arg2, Register 
     // determine operation
     if (strcmp(op, "+") == 0)
     {
-        add_assembly_line("dadd %s, %s, %s\n", reg3->name, reg1->name, reg2->name);
+        add_assembly_line("daddu %s, %s, %s\n", reg3->name, reg1->name, reg2->name);
     }
     else if (strcmp(op, "-") == 0)
     {
@@ -226,7 +228,7 @@ void generate_code_section()
                 Register *temp_reg = find_temp_reg(ins.result);
 
                 add_assembly_line("ld %s, %s(r0)\n", var_reg->name, ins.arg1);
-                add_assembly_line("dadd %s, %s, r0\n", temp_reg->name, var_reg->name);
+                add_assembly_line("daddu %s, %s, r0\n", temp_reg->name, var_reg->name);
 
                 temp_reg->used = 1;
                 strcpy(temp_reg->assigned_temp, ins.result);
@@ -264,7 +266,7 @@ void generate_code_section()
                 }
 
                 // Move value from arg1 temp into result temp
-                add_assembly_line("dadd %s, %s, r0\n", temp_res->name, temp_arg1->name);
+                add_assembly_line("daddu %s, %s, r0\n", temp_res->name, temp_arg1->name);
             }
         }
         // case 2 : assignment + operation
