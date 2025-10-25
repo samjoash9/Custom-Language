@@ -143,7 +143,7 @@ static void generateCode(ASTNode *node)
 
     switch (node->type)
     {
-    case NODE_PROGRAM:
+    case NODE_START:
         generateCode(node->left);
         break;
 

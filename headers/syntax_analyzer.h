@@ -10,7 +10,7 @@
 // === AST NODE TYPES ===
 typedef enum
 {
-    NODE_PROGRAM,
+    NODE_START,
     NODE_STATEMENT_LIST,
     NODE_STATEMENT,
     NODE_DECLARATION,
@@ -40,7 +40,7 @@ void print_ast(ASTNode *node, int depth);
 
 // === PARSER ENTRY POINT ===
 ASTNode *parse_program();
-void syntax_analyzer();
+int syntax_analyzer();
 
 // === PARSER SUBFUNCTIONS (Forward Declarations) ===
 ASTNode *parse_statement_list();
@@ -51,4 +51,4 @@ ASTNode *parse_expression();
 ASTNode *parse_term();
 ASTNode *parse_factor();
 
-#endif // SYNTAX_ANALYZER_H
+#endif

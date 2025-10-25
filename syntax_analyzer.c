@@ -80,7 +80,7 @@ ASTNode *parse_assignment_element();
 // === PROGRAM ===
 ASTNode *parse_program()
 {
-    return create_node(NODE_PROGRAM, "PROGRAM", parse_statement_list(), NULL);
+    return create_node(NODE_START, "START", parse_statement_list(), NULL);
 }
 
 // === STATEMENT_LIST ===
@@ -378,15 +378,15 @@ void print_ast(ASTNode *node, int depth)
         printf("  ");
 
     const char *type_str =
-        node->type == NODE_PROGRAM ? "PROGRAM" : node->type == NODE_STATEMENT_LIST ? "STMT_LIST"
-                                             : node->type == NODE_STATEMENT        ? "STMT"
-                                             : node->type == NODE_DECLARATION      ? "DECL"
-                                             : node->type == NODE_ASSIGNMENT       ? "ASSIGN"
-                                             : node->type == NODE_EXPRESSION       ? "EXPR"
-                                             : node->type == NODE_TERM             ? "TERM"
-                                             : node->type == NODE_UNARY_OP         ? "UNARY_OP"
-                                             : node->type == NODE_POSTFIX_OP       ? "POSTFIX_OP"
-                                                                                   : "FACTOR";
+        node->type == NODE_START ? "START" : node->type == NODE_STATEMENT_LIST ? "STMT_LIST"
+                                         : node->type == NODE_STATEMENT        ? "STMT"
+                                         : node->type == NODE_DECLARATION      ? "DECL"
+                                         : node->type == NODE_ASSIGNMENT       ? "ASSIGN"
+                                         : node->type == NODE_EXPRESSION       ? "EXPR"
+                                         : node->type == NODE_TERM             ? "TERM"
+                                         : node->type == NODE_UNARY_OP         ? "UNARY_OP"
+                                         : node->type == NODE_POSTFIX_OP       ? "POSTFIX_OP"
+                                                                               : "FACTOR";
 
     printf("(%s: %s)\n", type_str, node->value ? node->value : "(null)");
     print_ast(node->left, depth + 1);
@@ -406,7 +406,7 @@ void free_ast(ASTNode *node)
 }
 
 // === ENTRY ===
-void syntax_analyzer()
+int syntax_analyzer()
 {
     printf("\n===== SYNTAX ANALYSIS START =====\n");
     current_token = 0;
@@ -424,4 +424,5 @@ void syntax_analyzer()
     printf("===== SYNTAX ANALYSIS END =====\n\n");
 
     // DO NOT free syntax_tree here — main or driver will call free_ast(syntax_tree)
+    return syntax_error;
 }

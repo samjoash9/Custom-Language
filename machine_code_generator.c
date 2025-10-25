@@ -1,30 +1,30 @@
 #include "headers/machine_code_generator.h"
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-#include <ctype.h>
-
-#define R_TYPE_COUNT 5
-#define I_TYPE_COUNT 3
 
 int start_code_counter = 0;
 
 const char *R_TYPE[R_TYPE_COUNT] = {"dadd", "dsub", "dmult", "ddiv", "mflo"};
 const char *I_TYPE[I_TYPE_COUNT] = {"daddiu", "ld", "sd"};
 
-void trim(char *str) {
+void trim(char *str)
+{
     char *end;
-    while (isspace((unsigned char)*str)) str++;                 // skip leading spaces
-    if (*str == 0) return;                                      // all spaces
+    while (isspace((unsigned char)*str))
+        str++; // skip leading spaces
+    if (*str == 0)
+        return; // all spaces
     end = str + strlen(str) - 1;
-    while (end > str && isspace((unsigned char)*end)) end--;    // trim trailing
+    while (end > str && isspace((unsigned char)*end))
+        end--; // trim trailing
     *(end + 1) = 0;
 }
 
-void remove_data_and_code_section() {
+void remove_data_and_code_section()
+{
     int i = 0;
-    while (i < assembly_code_count) {
-        if (strstr(assembly_code[i].assembly, ".code") != NULL) {
+    while (i < assembly_code_count)
+    {
+        if (strstr(assembly_code[i].assembly, ".code") != NULL)
+        {
             start_code_counter = i + 1;
             break;
         }
@@ -32,45 +32,63 @@ void remove_data_and_code_section() {
     }
 
     int j = 0;
-    for (i = start_code_counter; i < assembly_code_count; i++, j++) {
+    for (i = start_code_counter; i < assembly_code_count; i++, j++)
+    {
         strcpy(assembly_code[j].assembly, assembly_code[i].assembly);
     }
     assembly_code_count = j;
 }
 
-void convert_to_binary(int num, int bits, char *output) {
+void convert_to_binary(int num, int bits, char *output)
+{
     output[bits] = '\0';
-    for (int i = bits - 1; i >= 0; i--) {
+    for (int i = bits - 1; i >= 0; i--)
+    {
         output[i] = (num & 1) ? '1' : '0';
         num >>= 1;
     }
 }
 
-int parse_register(const char *token) {
+int parse_register(const char *token)
+{
     if (token[0] == 'r' || token[0] == 'R')
         return atoi(token + 1);
     return 0;
 }
 
-
-int get_opcode(const char *mnemonic) {
-    if (strcmp(mnemonic, "dadd") == 0) return 0x00;
-    if (strcmp(mnemonic, "dsub") == 0) return 0x00;
-    if (strcmp(mnemonic, "dmult") == 0) return 0x00;
-    if (strcmp(mnemonic, "ddiv") == 0) return 0x00;
-    if (strcmp(mnemonic, "mflo") == 0) return 0x00;
-    if (strcmp(mnemonic, "daddiu") == 0) return 0x19;
-    if (strcmp(mnemonic, "ld") == 0) return 0x37;
-    if (strcmp(mnemonic, "sd") == 0) return 0x3F;
+int get_opcode(const char *mnemonic)
+{
+    if (strcmp(mnemonic, "dadd") == 0)
+        return 0x00;
+    if (strcmp(mnemonic, "dsub") == 0)
+        return 0x00;
+    if (strcmp(mnemonic, "dmult") == 0)
+        return 0x00;
+    if (strcmp(mnemonic, "ddiv") == 0)
+        return 0x00;
+    if (strcmp(mnemonic, "mflo") == 0)
+        return 0x00;
+    if (strcmp(mnemonic, "daddiu") == 0)
+        return 0x19;
+    if (strcmp(mnemonic, "ld") == 0)
+        return 0x37;
+    if (strcmp(mnemonic, "sd") == 0)
+        return 0x3F;
     return 0;
 }
 
-int get_funct(const char *mnemonic) {
-    if (strcmp(mnemonic, "dadd") == 0) return 0x2C;
-    if (strcmp(mnemonic, "dsub") == 0) return 0x2E;
-    if (strcmp(mnemonic, "dmult") == 0) return 0x1C;
-    if (strcmp(mnemonic, "ddiv") == 0) return 0x1E;
-    if (strcmp(mnemonic, "mflo") == 0) return 0x12;
+int get_funct(const char *mnemonic)
+{
+    if (strcmp(mnemonic, "dadd") == 0)
+        return 0x2C;
+    if (strcmp(mnemonic, "dsub") == 0)
+        return 0x2E;
+    if (strcmp(mnemonic, "dmult") == 0)
+        return 0x1C;
+    if (strcmp(mnemonic, "ddiv") == 0)
+        return 0x1E;
+    if (strcmp(mnemonic, "mflo") == 0)
+        return 0x12;
     return 0;
 }
 
@@ -79,13 +97,15 @@ void convert_to_machine_code() {
     char mnemonic[32], operands[128];
     char bin_opcode[7], bin_rs[6], bin_rt[6], bin_rd[6], bin_shamt[6], bin_funct[7];
     char bin_imm[17];
-    
-    // to hold the full binary string
-    char full_bin[40]; 
 
-    for (int i = 0; i < assembly_code_count; i++) {
+    // to hold the full binary string
+    char full_bin[40];
+
+    for (int i = 0; i < assembly_code_count; i++)
+    {
         assembly_code[i].assembly[strcspn(assembly_code[i].assembly, "\n")] = '\0';
-        if (strstr(assembly_code[i].assembly, ";")) continue;                           // skip comments
+        if (strstr(assembly_code[i].assembly, ";"))
+            continue; // skip comments
 
         if (sscanf(assembly_code[i].assembly, "%31s %[^\n]", mnemonic, operands) < 1)
             continue;
@@ -99,25 +119,35 @@ void convert_to_machine_code() {
         char *tok;
 
         // --- Tokenize Operands ---
-        if (strcmp(mnemonic, "mflo") == 0) {
+        if (strcmp(mnemonic, "mflo") == 0)
+        {
             tok = strtok(operands, ", ");
-            if (tok) rd = parse_register(tok);
-        } 
-        else if (opcode == 0x00) { // R-type
+            if (tok)
+                rd = parse_register(tok);
+        }
+        else if (opcode == 0x00)
+        { // R-type
             tok = strtok(operands, ", ");
-            if (tok) rd = parse_register(tok);
+            if (tok)
+                rd = parse_register(tok);
             tok = strtok(NULL, ", ");
-            if (tok) rs = parse_register(tok);
+            if (tok)
+                rs = parse_register(tok);
             tok = strtok(NULL, ", ");
-            if (tok) rt = parse_register(tok);
-        } 
-        else { // I-type
+            if (tok)
+                rt = parse_register(tok);
+        }
+        else
+        { // I-type
             tok = strtok(operands, ", ");
-            if (tok) rt = parse_register(tok);
+            if (tok)
+                rt = parse_register(tok);
             tok = strtok(NULL, ", ");
-            if (tok) rs = parse_register(tok);
+            if (tok)
+                rs = parse_register(tok);
             tok = strtok(NULL, ", ");
-            if (tok) imm = atoi(tok);
+            if (tok)
+                imm = atoi(tok);
         }
 
         // --- Convert Fields to Binary ---
@@ -151,8 +181,8 @@ void convert_to_machine_code() {
     }
 }
 
-
-void generate_machine_code() {
+void generate_machine_code()
+{
     remove_data_and_code_section();
     printf("===== MACHINE CODE =====\n");
     convert_to_machine_code();

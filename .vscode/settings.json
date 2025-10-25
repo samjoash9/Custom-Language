@@ -63,6 +63,8 @@
     "lexical_analyzer.h": "c",
     "intermediate_code_generator.h": "c",
     "semantic_analyzer.h": "c",
-    "target_code_generator.h": "c"
+    "target_code_generator.h": "c",
+    "stdio.h": "c",
+    "syntax_analyzer.h": "c"
   }
 }
