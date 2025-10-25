@@ -1,2 +1,1 @@
-int 9num = 5;
-// char c = 'a
+    int c = 1 + '1';
