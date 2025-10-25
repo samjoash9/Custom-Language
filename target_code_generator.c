@@ -78,6 +78,10 @@ Register *get_available_register()
         }
     }
 
+    // if we reach this point, then there is no available register to allocate
+    printf("You've reach the limit of registers in MIPS64.\n");
+    exit(0);
+
     return NULL;
 }
 
@@ -233,7 +237,7 @@ void generate_code_section()
                 strcpy(temp_reg->assigned_temp, ins.result);
             }
             // case 5 : temp = constant
-            else if (is_tac_temporary(ins.result) && (isdigit(ins.arg1[0] || ins.arg1[0] == '-' && isdigit(ins.arg1[1]))))
+            else if (is_tac_temporary(ins.result) && is_digit(ins.arg1))
             {
                 Register *temp_reg = get_available_register();
                 temp_reg->used = 1;
@@ -532,7 +536,6 @@ void generate_target_code()
     initialize_registers();
     generate_data_section();
     generate_code_section();
-
     // display_data_storage();
     display_assembly_code();
 }
