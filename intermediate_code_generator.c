@@ -251,7 +251,7 @@ static void displayOptimizedTAC()
         else
             printf("%s = %s %s %s\n", inst->result, inst->arg1, inst->op, inst->arg2);
     }
-    printf("===== OPTIMIZED CODE END =====\n");
+    printf("===== OPTIMIZED CODE END =====\n\n");
 }
 
 // === Public Interface ===
