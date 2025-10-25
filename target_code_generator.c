@@ -19,7 +19,7 @@ void add_assembly_line(const char *format, ...)
 }
 
 void display_assembly_code()
-{   
+{
     printf("===== ASSEMBLY CODE =====\n");
     for (int i = 0; i < assembly_code_count; i++)
         printf("%s", assembly_code[i].assembly);
@@ -192,7 +192,6 @@ void generate_code_section()
             // case 1 : variable = constant (for constant: check if positive or negative)
             if (is_in_data_storage(ins.result) &&
                 (isdigit(ins.arg1[0]) || (ins.arg1[0] == '-' && isdigit(ins.arg1[1]))))
-
             {
                 Register *reg = get_available_register();
                 reg->used = 1;

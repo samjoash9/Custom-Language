@@ -10,7 +10,7 @@
 // === AST NODE TYPES ===
 typedef enum
 {
-    NODE_PROGRAM,
+    NODE_START,
     NODE_STATEMENT_LIST,
     NODE_STATEMENT,
     NODE_DECLARATION,
