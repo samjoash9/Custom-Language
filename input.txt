@@ -1,6 +1,2 @@
-int i = -5;
-
-
-int b = 10/i;
-
-b = b * 2;
+int 9num = 5;
+// char c = 'a

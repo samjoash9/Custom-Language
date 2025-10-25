@@ -6,31 +6,29 @@
 // Global token array and count
 TOKEN tokens[MAX_TOKENS];
 int token_count = 0;
+int error_found = 0;
 
-// Check if token is a valid datatypew
 int is_datatype(const char *token)
 {
     return (strcmp(token, "int") == 0 || strcmp(token, "char") == 0);
 }
 
-// Check if character can start an operator
 int is_operator_char(char c)
 {
     return (c == '+' || c == '-' || c == '*' || c == '/' || c == '=' || c == '!' || c == '<' || c == '>');
 }
 
-// Check if character is a delimiter
 int is_delimiter(char c)
 {
     return (c == ';' || c == ',');
 }
 
-// Add lexeme to tokens array
 void add_to_tokens(const char *lexeme, TokenType token_type)
 {
     if (token_count >= MAX_TOKENS)
     {
         printf("Error adding token: Reached max tokens.\n");
+        error_found = 1;
         return;
     }
 
@@ -40,7 +38,6 @@ void add_to_tokens(const char *lexeme, TokenType token_type)
     token_count++;
 }
 
-// Extract datatype or identifier token
 void get_token_as_dt_or_id(const char *source, char *target, int *s_iterator, int *t_iterator)
 {
     *t_iterator = 0;
@@ -52,7 +49,9 @@ void get_token_as_dt_or_id(const char *source, char *target, int *s_iterator, in
         (*s_iterator)++;
     }
     target[*t_iterator] = '\0';
-    (*s_iterator)--; // step back since main loop increments
+
+    // step back since main loop increments
+    (*s_iterator)--;
 }
 
 // Extract integer literal (with optional unary + or -)
@@ -154,23 +153,32 @@ void skip_single_line_comment(const char *src, int *i)
         (*i)++;
 }
 
-// Skip multi-line comment
-void skip_multi_line_comment(const char *src, int *i)
+int skip_multi_line_comment(const char *src, int *i)
 {
-    *i += 2;
+    *i += 2; // skip "/*"
+
     while (src[*i] != '\0' && !(src[*i] == '*' && src[*i + 1] == '/'))
         (*i)++;
-    if (src[*i] != '\0')
-        *i += 1; // skip final '/'
+
+    if (src[*i] == '\0')
+    {
+        printf("Error: unclosed multi-line comment\n");
+        return 1;
+    }
+
+    *i += 2; // skip "*/"
+
+    return 0;
 }
 
-// Main lexer function
-void lexer(const char *src)
+int lexer(const char *src)
 {
+    printf("\n===== LEXICAL ANALYSIS START =====\n");
+
     if (!src)
     {
         printf("Lexer: source is NULL\n");
-        return;
+        return 1;
     }
 
     int len = (int)strlen(src);
@@ -181,7 +189,7 @@ void lexer(const char *src)
     {
         char c = src[i];
 
-        // Ignore carriage returns (Windows CRLF)
+        // Ignore carriage returns
         if (c == '\r')
             continue;
 
@@ -189,15 +197,21 @@ void lexer(const char *src)
         if (isspace((unsigned char)c))
             continue;
 
-        // Skip comments
-        if (c == '/' && i + 1 < len && src[i + 1] == '/')
+        // Skip comments:
+        // case 1 : single comment
+        if ((c == '/') && (i + 1 < len) && (src[i + 1] == '/'))
         {
             skip_single_line_comment(src, &i);
             continue;
         }
+        // case 2 : multicomment
         else if (c == '/' && i + 1 < len && src[i + 1] == '*')
         {
-            skip_multi_line_comment(src, &i);
+            if (skip_multi_line_comment(src, &i))
+            {
+                error_found = 1; // mark lexical error
+                break;           // stop scanning
+            }
             continue;
         }
 
@@ -225,7 +239,6 @@ void lexer(const char *src)
             continue;
         }
 
-        // Character literal
         if (c == '\'')
         {
             int j = i + 1;
@@ -250,7 +263,10 @@ void lexer(const char *src)
                     continue;
                 }
             }
-            // if malformed, fall through to warning
+            // if we reach here, malformed literal
+            printf("Lexer Error: Unterminated character literal\n");
+            error_found = 1;
+            continue;
         }
 
         // Parentheses
@@ -298,7 +314,13 @@ void lexer(const char *src)
 
         // If we get here, unknown char
         printf("Lexer Warning: Unknown symbol (ASCII %d) '%c'\n", (unsigned char)c, c);
+        error_found = 1;
     }
 
     display_tokens();
+
+    if (error_found)
+        return 1;
+
+    return 0;
 }

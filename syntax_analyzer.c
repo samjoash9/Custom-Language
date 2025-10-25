@@ -406,7 +406,7 @@ void free_ast(ASTNode *node)
 }
 
 // === ENTRY ===
-void syntax_analyzer()
+int syntax_analyzer()
 {
     printf("\n===== SYNTAX ANALYSIS START =====\n");
     current_token = 0;
@@ -424,4 +424,5 @@ void syntax_analyzer()
     printf("===== SYNTAX ANALYSIS END =====\n\n");
 
     // DO NOT free syntax_tree here — main or driver will call free_ast(syntax_tree)
+    return syntax_error;
 }

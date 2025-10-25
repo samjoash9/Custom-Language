@@ -13,16 +13,14 @@
 
 int main()
 {
-    // MAIN READS THE ENTIRE SOURCE CODE
+    // === STEP 0: READ SOURCE CODE ===
     FILE *fp = fopen("input.txt", "r");
-
     if (fp == NULL)
     {
         printf("Error: unable to open file.\n");
         return 1;
     }
 
-    // Determine source code length
     fseek(fp, 0, SEEK_END);
     long length = ftell(fp);
     rewind(fp);
@@ -40,28 +38,47 @@ int main()
     fclose(fp);
 
     // === STEP 1: LEXICAL ANALYSIS ===
-    lexer(source_code);
+    if (lexer(source_code))
+    {
+        printf("Compilation stopped: Lexical errors found.\n");
+        free(source_code);
+        return 1;
+    }
 
     // === STEP 2: SYNTAX ANALYSIS ===
-    syntax_analyzer();
+    printf("\n===== SYNTAX ANALYSIS START =====\n");
+    int syntax_status = syntax_analyzer();
+    if (syntax_status != 0)
+    {
+        printf("\nCompilation aborted due to syntax error.\n");
+        free(source_code);
+        return 1;
+    }
 
     // === STEP 3: SEMANTIC ANALYSIS ===
-    semantic_analyzer();
+    printf("\n====== SEMANTIC ANALYZER ======\n");
+    int semantic_status = semantic_analyzer();
+    if (semantic_status != 0)
+    {
+        printf("\nCompilation aborted due to semantic error.\n");
+        free(source_code);
+        return 1;
+    }
 
-    // STEP 4 : INTERMEDIATE CODE GENERATOR
+    // === STEP 4: INTERMEDIATE CODE GENERATION ===
     generate_intermediate_code(syntax_tree);
 
-    // STEP 5 : TARGET CODE GENERATOR (MIPS64)
+    // === STEP 5: TARGET CODE (MIPS64) ===
     generate_target_code();
 
-    // STEP 6 : MACHINE CODE GENERATOR
+    // === STEP 6: MACHINE CODE GENERATION ===
     generate_machine_code();
 
     // === SYMBOL TABLE ===
     printf("\n\n===== SYMBOL TABLE (AFTER ANALYSIS) =====\n");
     display_symbol_table();
 
-    // Free memory
+    // === CLEANUP ===
     free(source_code);
     if (optimizedCode)
         free(optimizedCode);
