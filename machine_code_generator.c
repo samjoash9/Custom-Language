@@ -92,20 +92,8 @@ int get_funct(const char *mnemonic)
     return 0;
 }
 
-unsigned int bin_to_uint(const char *bin)
-{
-    unsigned int val = 0;
-    while (*bin)
-    {
-        val = (val << 1) | (*bin - '0');
-        bin++;
-    }
-    return val;
-}
-
-void convert_to_machine_code()
-{
-
+void convert_to_machine_code() {
+    
     char mnemonic[32], operands[128];
     char bin_opcode[7], bin_rs[6], bin_rt[6], bin_rd[6], bin_shamt[6], bin_funct[7];
     char bin_imm[17];
@@ -177,11 +165,19 @@ void convert_to_machine_code()
         else
             snprintf(full_bin, sizeof(full_bin), "%s %s %s %s", bin_opcode, bin_rs, bin_rt, bin_imm);
 
-        // --- Convert Binary to Hex ---
-        unsigned int hex_value = bin_to_uint(full_bin);
+
+        // --- Convert Binary String to Hexadecimal ---
+        unsigned int full_bin_value = 0;
+        for (int j = 0; j < strlen(full_bin); j++) {
+            if (full_bin[j] == '1') {
+                full_bin_value = (full_bin_value << 1) | 1;
+            } else if (full_bin[j] == '0') {
+                full_bin_value <<= 1;
+            }
+        }   
 
         // --- Output Binary + Hex ---
-        printf("%-20s\t->\t%s\t(0x%08X)\n", assembly_code[i].assembly, full_bin, hex_value);
+        printf("%-20s\t->\t%s\t(0x%08X)\n", assembly_code[i].assembly, full_bin, full_bin_value);
     }
 }
 
