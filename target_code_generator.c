@@ -214,9 +214,6 @@ void perform_operation(char *result, char *arg1, char *op, char *arg2, Register 
             reg3->used = 0;
             reg3->assigned_temp[0] = '\0';
         }
-
-        // Debug
-        // printf("Freed reg1=%s reg2=%s reg3=%s\n", reg1?reg1->name:"-", reg2?reg2->name:"-", reg3?reg3->name:"-");
     }
 
     else
@@ -243,7 +240,6 @@ void generate_code_section()
             if (is_in_data_storage(ins.result) &&
                 (isdigit(ins.arg1[0]) || (ins.arg1[0] == '-' && isdigit(ins.arg1[1]))))
             {
-                printf("sulod1");
                 Register *reg = get_available_register();
                 reg->used = 1;
 
@@ -274,7 +270,6 @@ void generate_code_section()
             // case 4 : temp = variable
             else if (is_tac_temporary(ins.result) && is_in_data_storage(ins.arg1))
             {
-                printf("sulod3\n");
                 Register *var_reg = get_available_register();
                 var_reg->used = 1;
 
@@ -347,8 +342,6 @@ void generate_code_section()
             // variable = variable op constant
             else if (is_in_data_storage(ins.result) && is_in_data_storage(ins.arg1) && is_digit(ins.arg2))
             {
-                printf("sulod2\n");
-
                 add_assembly_line("ld %s, %s(r0)\n", reg1->name, ins.arg1);
                 add_assembly_line("daddiu %s, r0, %s\n", reg2->name, ins.arg2);
 
@@ -396,7 +389,6 @@ void generate_code_section()
             // variable = variable op temp
             else if (is_in_data_storage(ins.result) && is_in_data_storage(ins.arg1) && is_tac_temporary(ins.arg2))
             {
-                printf("Sulod4\n");
                 reg1->used = 0;
                 reg2->used = 0;
                 reg3->used = 0;
@@ -404,12 +396,6 @@ void generate_code_section()
                 reg1 = get_available_register();
                 reg1->used = 1;
                 reg2 = find_temp_reg(ins.arg2);
-
-                if (reg2 == NULL)
-                {
-                    printf("WALA NAKITA");
-                }
-
                 reg2->used = 1;
                 reg3 = get_available_register();
                 reg3->used = 1;
