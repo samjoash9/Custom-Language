@@ -2,8 +2,19 @@
 
 int start_code_counter = 0;
 
-const char *R_TYPE[R_TYPE_COUNT] = {"dadd", "dsub", "dmult", "ddiv", "mflo"};
+const char *R_TYPE[R_TYPE_COUNT] = {"daddu", "dsub", "dmult", "ddiv", "mflo"};
 const char *I_TYPE[I_TYPE_COUNT] = {"daddiu", "ld", "sd"};
+
+
+typedef struct {
+    char label[32];
+    int address;
+} DataSymbol;
+
+DataSymbol data_symbols[100];
+int data_symbol_count = 0;
+int current_data_address = 0xFFF8; // base address for .data section 
+
 
 void trim(char *str)
 {
@@ -18,11 +29,24 @@ void trim(char *str)
     *(end + 1) = 0;
 }
 
+
 void remove_data_and_code_section()
 {
     int i = 0;
     while (i < assembly_code_count)
-    {
+    {   
+
+        char *line = assembly_code[i].assembly;
+
+        char label[32];
+        if (sscanf(line, "%31[^:]:", label) == 1) {
+            trim(label);
+            strcpy(data_symbols[data_symbol_count].label, label);
+            data_symbols[data_symbol_count].address = current_data_address;
+            data_symbol_count++;
+            current_data_address += 8; // each .word takes 8 bytes
+        }
+
         if (strstr(assembly_code[i].assembly, ".code") != NULL)
         {
             start_code_counter = i + 1;
@@ -58,7 +82,7 @@ int parse_register(const char *token)
 
 int get_opcode(const char *mnemonic)
 {
-    if (strcmp(mnemonic, "dadd") == 0)
+    if (strcmp(mnemonic, "daddu") == 0)
         return 0x00;
     if (strcmp(mnemonic, "dsub") == 0)
         return 0x00;
@@ -79,8 +103,8 @@ int get_opcode(const char *mnemonic)
 
 int get_funct(const char *mnemonic)
 {
-    if (strcmp(mnemonic, "dadd") == 0)
-        return 0x2C;
+    if (strcmp(mnemonic, "daddu") == 0)
+        return 0x2D;
     if (strcmp(mnemonic, "dsub") == 0)
         return 0x2E;
     if (strcmp(mnemonic, "dmult") == 0)
@@ -119,14 +143,12 @@ void convert_to_machine_code() {
         char *tok;
 
         // --- Tokenize Operands ---
-        if (strcmp(mnemonic, "mflo") == 0)
-        {
+        if (strcmp(mnemonic, "mflo") == 0){ 
             tok = strtok(operands, ", ");
             if (tok)
                 rd = parse_register(tok);
         }
-        else if (opcode == 0x00)
-        { // R-type
+        else if (opcode == 0x00){ // R-type
             tok = strtok(operands, ", ");
             if (tok)
                 rd = parse_register(tok);
@@ -137,17 +159,40 @@ void convert_to_machine_code() {
             if (tok)
                 rt = parse_register(tok);
         }
-        else
-        { // I-type
+        else{ // I-type
             tok = strtok(operands, ", ");
             if (tok)
                 rt = parse_register(tok);
             tok = strtok(NULL, ", ");
             if (tok)
-                rs = parse_register(tok);
-            tok = strtok(NULL, ", ");
-            if (tok)
-                imm = atoi(tok);
+            {
+                // check for label(offset)
+                char *paren = strchr(tok, '(');
+                if (paren)
+                {
+                    *paren = '\0';
+                    trim(tok);
+                    char *base_reg = paren + 1;
+                    base_reg[strcspn(base_reg, ")")] = 0;
+                    rs = parse_register(base_reg);
+
+                    // --- Check if tok is a label ---
+                    int found = 0;
+                    for (int d = 0; d < data_symbol_count; d++) {
+                        if (strcmp(tok, data_symbols[d].label) == 0) {
+                            imm = data_symbols[d].address;
+                            found = 1;
+                            break;
+                        }
+                    }
+                    if (!found) imm = atoi(tok); // fallback to numeric
+                }
+                else {
+                    rs = parse_register(tok);
+                    tok = strtok(NULL, ", ");
+                    if (tok) imm = atoi(tok);
+                }
+            }
         }
 
         // --- Convert Fields to Binary ---
@@ -182,7 +227,7 @@ void convert_to_machine_code() {
 }
 
 void generate_machine_code()
-{
+{   
     remove_data_and_code_section();
     printf("===== MACHINE CODE =====\n");
     convert_to_machine_code();
