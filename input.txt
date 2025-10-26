@@ -1,2 +1,6 @@
-    int a = 1, b, c, d, e;
-    b = c = d = e = (a + a) + (2 * a + (8 / 4));
+int aloha, bee = 2, csd = 3;
+    int dasd = 1, easd = 2, fasd = 3, gasd = 4, hasd = 5, iasd = 6, jasd = 7, kasd = 8;
+    int lasd = 9, masd = 10, nasd = 11, oasd = 12, pasd = 13, qasd = 14, rasd = 15, sasd = 16;
+    int tasd = 17, uasd = 18, vasd = 19, wasd = 20, xasd = 21, yasd = 22;
+
+    aloha = (bee + csd) + (dasd + easd) + (fasd + gasd) + (hasd + iasd) * (jasd + kasd) / (lasd + masd) + (nasd + oasd) + (pasd + qasd) * (rasd + sasd) * (tasd + uasd) / (vasd + wasd) / (xasd + yasd);
