@@ -1,4 +1,1 @@
-int fill = 2;
-int mark = fill = 5;
-
-int c = (1 + 2) + 3;
+int a = (1 + 2) * (2 + 2);
