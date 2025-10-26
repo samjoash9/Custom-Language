@@ -171,13 +171,10 @@ void display_tac_as_comment(TACInstruction ins)
 
 void perform_operation(char *result, char *arg1, char *op, char *arg2, Register *reg1, Register *reg2, Register *reg3, int is_for_temporary)
 {
-    printf("%s\n", op);
-
     // determine operation
     if (strcmp(op, "+") == 0)
     {
         add_assembly_line("daddu %s, %s, %s\n", reg3->name, reg1->name, reg2->name);
-        printf("nag add\n");
     }
     else if (strcmp(op, "-") == 0)
     {
