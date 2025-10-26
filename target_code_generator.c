@@ -21,10 +21,21 @@ void add_assembly_line(const char *format, ...)
 void display_assembly_code()
 {
     printf("===== ASSEMBLY CODE =====\n");
-    for (int i = 0; i < assembly_code_count; i++)
-        printf("%s", assembly_code[i].assembly);
+
+    for (int i = 0; i < assembly_code_count; i++) {
+        // Copy pointer to make it easier to read
+        char *line = assembly_code[i].assembly;
+        // If this is the last line and it ends with '\n', remove it
+        if (i == assembly_code_count - 1) {
+            size_t len = strlen(line);
+            if (len > 0 && line[len - 1] == '\n')
+                line[len - 1] = '\0';
+        }
+        printf("%s", line);
+    }
     printf("===== ASSEMBLY CODE END =====\n\n");
 }
+
 
 void initialize_registers()
 {

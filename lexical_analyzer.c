@@ -130,19 +130,28 @@ const char *token_type_to_string(TokenType type)
 // Display all tokens
 void display_tokens()
 {
-    printf("\n----- TOKENS -----\n");
+    printf("----- TOKENS -----\n");
     if (token_count == 0)
     {
         printf("No tokens found.\n");
     }
     for (int i = 0; i < token_count; i++)
     {
-        printf("Token %d: %-12s | %s\n",
+
+        if (i == token_count - 1){
+            printf("Token %d: %-12s | %s",
                i + 1,
                token_type_to_string(tokens[i].type),
                tokens[i].lexeme);
-    }
-    printf("------------------\n\n");
+        }
+        else{
+            printf("Token %d: %-12s | %s\n",
+                i + 1,
+                token_type_to_string(tokens[i].type),
+                tokens[i].lexeme);
+            }
+        }
+    printf("\n------------------\n");
 }
 
 // Skip single-line comment
@@ -323,6 +332,9 @@ int lexer(const char *src)
     }
 
     display_tokens();
+
+
+    printf("===== LEXICAL ANALYSIS END =====\n");
 
     if (error_found)
         return 1;

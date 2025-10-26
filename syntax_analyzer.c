@@ -348,7 +348,6 @@ void free_ast(ASTNode *node)
 // === ENTRY POINT ===
 int syntax_analyzer()
 {
-    printf("\n===== SYNTAX ANALYSIS START =====\n");
     current_token = 0;
     syntax_error = 0;
 

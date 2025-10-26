@@ -8,15 +8,13 @@ int has_semantic_error = 0;
 
 int semantic_analyzer()
 {
-    printf("\n====== SEMANTIC ANALYZER ======\n");
-    printf("Semantic Analyzer is running.\n\n");
 
     has_semantic_error = 0; // reset before each run
 
     if (symbol_count <= 0)
     {
         printf("Symbol table is empty.\n");
-        printf("\n====== SEMANTIC ANALYZER END ======\n\n");
+        printf("====== SEMANTIC ANALYZER END ======\n\n");
         return 0;
     }
 
@@ -89,7 +87,7 @@ int semantic_analyzer()
     }
 
     if (!has_semantic_error)
-        printf("\nNo semantic errors found.\n");
+        printf("No semantic errors found.");
 
     printf("\n====== SEMANTIC ANALYZER END ======\n\n");
 
