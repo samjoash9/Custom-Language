@@ -173,9 +173,7 @@ void perform_operation(char *result, char *arg1, char *op, char *arg2, Register 
 {
     // determine operation
     if (strcmp(op, "+") == 0)
-    {
         add_assembly_line("daddu %s, %s, %s\n", reg3->name, reg1->name, reg2->name);
-    }
     else if (strcmp(op, "-") == 0)
     {
         add_assembly_line("dsub %s, %s, %s\n", reg3->name, reg1->name, reg2->name);
