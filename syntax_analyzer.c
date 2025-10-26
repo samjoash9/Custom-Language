@@ -59,10 +59,7 @@ ASTNode *create_node(NodeType type, const char *value, ASTNode *left, ASTNode *r
     node->type = type;
     node->left = left;
     node->right = right;
-    if (value)
-        node->value = strdup(value); // deep copy
-    else
-        node->value = strdup(""); // keep non-NULL for printing convenience
+    node->value = value ? strdup(value) : strdup("");
     if (!node->value)
     {
         fprintf(stderr, "Out of memory duplicating node value\n");
@@ -75,7 +72,7 @@ ASTNode *create_node(NodeType type, const char *value, ASTNode *left, ASTNode *r
 ASTNode *parse_expression();
 ASTNode *parse_term();
 ASTNode *parse_factor();
-ASTNode *parse_assignment_element();
+ASTNode *parse_assignment();
 
 // === PROGRAM ===
 ASTNode *parse_program()
@@ -83,7 +80,7 @@ ASTNode *parse_program()
     return create_node(NODE_START, "START", parse_statement_list(), NULL);
 }
 
-// === STATEMENT_LIST ===
+// === STATEMENT LIST ===
 ASTNode *parse_statement_list()
 {
     TOKEN *tok = peek();
@@ -93,9 +90,6 @@ ASTNode *parse_statement_list()
     ASTNode *stmt = parse_statement();
     if (!stmt)
         return NULL;
-
-    if (!peek())
-        return create_node(NODE_STATEMENT_LIST, "STATEMENT_LIST", stmt, NULL);
 
     ASTNode *next = parse_statement_list();
     return create_node(NODE_STATEMENT_LIST, "STATEMENT_LIST", stmt, next);
@@ -117,12 +111,9 @@ ASTNode *parse_statement()
     else if (tok->type == TOK_IDENTIFIER)
     {
         TOKEN *next = (current_token + 1 < token_count) ? &tokens[current_token + 1] : NULL;
-
         if (next && next->type == TOK_OPERATOR &&
-            (strcmp(next->lexeme, "=") == 0 ||
-             strcmp(next->lexeme, "+=") == 0 ||
-             strcmp(next->lexeme, "-=") == 0 ||
-             strcmp(next->lexeme, "*=") == 0 ||
+            (strcmp(next->lexeme, "=") == 0 || strcmp(next->lexeme, "+=") == 0 ||
+             strcmp(next->lexeme, "-=") == 0 || strcmp(next->lexeme, "*=") == 0 ||
              strcmp(next->lexeme, "/=") == 0))
         {
             stmt_node = parse_assignment();
@@ -137,9 +128,6 @@ ASTNode *parse_statement()
         stmt_node = parse_expression();
     }
 
-    if (!stmt_node)
-        return NULL;
-
     if (!match(";"))
         error("Missing ';' after statement");
 
@@ -149,7 +137,7 @@ ASTNode *parse_statement()
 // === DECLARATION ===
 ASTNode *parse_declaration()
 {
-    TOKEN *datatype = consume(); // int or char
+    TOKEN *datatype = consume();
     ASTNode *decl_list = NULL, *last = NULL;
 
     while (1)
@@ -160,7 +148,7 @@ ASTNode *parse_declaration()
             error("Expected identifier in declaration");
             break;
         }
-        consume(); // consume identifier
+        consume();
 
         ASTNode *rhs_node = NULL;
         int initialized = 0;
@@ -168,20 +156,8 @@ ASTNode *parse_declaration()
 
         if (match("="))
         {
-            rhs_node = parse_expression(); // build AST for RHS
-
-            // If RHS is literal, store value in symbol table
-            if (rhs_node && rhs_node->type == NODE_FACTOR &&
-                (isdigit((unsigned char)rhs_node->value[0]) || rhs_node->value[0] == '\''))
-            {
-                strncpy(literal_value, rhs_node->value, sizeof(literal_value) - 1);
-                literal_value[sizeof(literal_value) - 1] = '\0';
-                initialized = 1;
-            }
-            else
-            {
-                initialized = 1; // variable is initialized, but RHS is non-literal
-            }
+            rhs_node = parse_expression();
+            initialized = 1;
         }
 
         add_symbol(id->lexeme, datatype->lexeme, literal_value, initialized);
@@ -203,72 +179,56 @@ ASTNode *parse_declaration()
 // === ASSIGNMENT ===
 ASTNode *parse_assignment()
 {
-    ASTNode *node = NULL;
-    node = parse_assignment_element();
-
-    while (match(","))
-    {
-        ASTNode *right = parse_assignment_element();
-        node = create_node(NODE_EXPRESSION, ",", node, right);
-    }
-
-    return node;
-}
-
-// === ASSIGNMENT ELEMENT ===
-ASTNode *parse_assignment_element()
-{
     TOKEN *id = peek();
     if (!id || id->type != TOK_IDENTIFIER)
     {
         error("Expected identifier in assignment");
         return NULL;
     }
+
     consume();
+    ASTNode *lhs_node = create_node(NODE_FACTOR, id->lexeme, NULL, NULL);
 
     TOKEN *op = peek();
-    if (!op || op->type != TOK_OPERATOR)
+    if (!op || op->type != TOK_OPERATOR ||
+        (strcmp(op->lexeme, "=") != 0 && strcmp(op->lexeme, "+=") != 0 &&
+         strcmp(op->lexeme, "-=") != 0 && strcmp(op->lexeme, "*=") != 0 &&
+         strcmp(op->lexeme, "/=") != 0))
     {
-        error("Expected operator in assignment");
-        return NULL;
+        error("Expected assignment operator");
+        return lhs_node;
     }
-    TOKEN op_token = *op;
-    consume();
 
-    ASTNode *rhs_node = parse_expression(); // build AST for RHS
+    consume(); // consume operator
 
-    int idx = find_symbol(id->lexeme);
-    if (idx != -1)
+    ASTNode *rhs_node = NULL;
+    // Support chained '=' assignments
+    if (strcmp(op->lexeme, "=") == 0 && peek() && peek()->type == TOK_IDENTIFIER)
     {
-        // If RHS is literal, update value
-        if (rhs_node && rhs_node->type == NODE_FACTOR &&
-            (isdigit((unsigned char)rhs_node->value[0]) || rhs_node->value[0] == '\''))
+        TOKEN *next_op = (current_token + 1 < token_count) ? &tokens[current_token + 1] : NULL;
+        if (next_op && next_op->type == TOK_OPERATOR && strcmp(next_op->lexeme, "=") == 0)
         {
-            update_symbol_value(id->lexeme, symbol_table[idx].datatype, rhs_node->value);
+            rhs_node = parse_assignment(); // recursive chaining
         }
         else
         {
-            // Mark initialized, but do not store raw expression
-            symbol_table[idx].initialized = 1;
+            rhs_node = parse_expression();
         }
     }
     else
     {
-        // Variable undeclared, add with empty datatype
-        add_symbol(id->lexeme, "", "", 0);
+        rhs_node = parse_expression();
     }
 
-    return create_node(NODE_ASSIGNMENT, op_token.lexeme,
-                       create_node(NODE_FACTOR, id->lexeme, NULL, NULL),
-                       rhs_node);
+    return create_node(NODE_ASSIGNMENT, op->lexeme, lhs_node, rhs_node);
 }
 
 // === EXPRESSION / TERM / FACTOR ===
 ASTNode *parse_expression()
 {
     ASTNode *node = parse_term();
-
     TOKEN *tok = peek();
+
     while (tok && (strcmp(tok->lexeme, "+") == 0 || strcmp(tok->lexeme, "-") == 0))
     {
         TOKEN *op = consume();
@@ -282,8 +242,8 @@ ASTNode *parse_expression()
 ASTNode *parse_term()
 {
     ASTNode *node = parse_factor();
-
     TOKEN *tok = peek();
+
     while (tok && (strcmp(tok->lexeme, "*") == 0 || strcmp(tok->lexeme, "/") == 0))
     {
         TOKEN *op = consume();
@@ -300,7 +260,7 @@ ASTNode *parse_factor()
     if (!tok)
         return NULL;
 
-    // Prefix unary operators
+    // Unary prefix
     if (tok->type == TOK_OPERATOR &&
         (strcmp(tok->lexeme, "+") == 0 || strcmp(tok->lexeme, "-") == 0 ||
          strcmp(tok->lexeme, "++") == 0 || strcmp(tok->lexeme, "--") == 0))
@@ -321,19 +281,11 @@ ASTNode *parse_factor()
         if (!match(")"))
             error("Missing ')'");
     }
-    // Identifiers or literals
+    // Identifier or literal
     else if (tok->type == TOK_IDENTIFIER || tok->type == TOK_INT_LITERAL || tok->type == TOK_CHAR_LITERAL)
     {
         consume();
         node = create_node(NODE_FACTOR, tok->lexeme, NULL, NULL);
-
-        // Check symbol table for identifiers
-        if (tok->type == TOK_IDENTIFIER)
-        {
-            int idx = find_symbol(tok->lexeme);
-            if (idx == -1)
-                add_symbol(tok->lexeme, "", "", 0);
-        }
     }
     else
     {
@@ -342,7 +294,7 @@ ASTNode *parse_factor()
         return NULL;
     }
 
-    // Postfix operators
+    // Postfix
     tok = peek();
     while (tok && tok->type == TOK_OPERATOR &&
            (strcmp(tok->lexeme, "++") == 0 || strcmp(tok->lexeme, "--") == 0))
@@ -350,19 +302,6 @@ ASTNode *parse_factor()
         TOKEN op_token = *tok;
         consume();
         node = create_node(NODE_POSTFIX_OP, op_token.lexeme, node, NULL);
-
-        // Optional: update symbol table for identifier
-        if (node->left == NULL && node->type == NODE_FACTOR)
-        {
-            int idx = find_symbol(node->value);
-            if (idx != -1)
-            {
-                char expr[MAX_VALUE_LEN];
-                snprintf(expr, MAX_VALUE_LEN, "%s%s", node->value, op_token.lexeme);
-                update_symbol_value(node->value, symbol_table[idx].datatype, expr);
-            }
-        }
-
         tok = peek();
     }
 
@@ -374,6 +313,7 @@ void print_ast(ASTNode *node, int depth)
 {
     if (!node)
         return;
+
     for (int i = 0; i < depth; i++)
         printf("  ");
 
@@ -405,7 +345,7 @@ void free_ast(ASTNode *node)
     free(node);
 }
 
-// === ENTRY ===
+// === ENTRY POINT ===
 int syntax_analyzer()
 {
     printf("\n===== SYNTAX ANALYSIS START =====\n");
@@ -413,7 +353,6 @@ int syntax_analyzer()
     syntax_error = 0;
 
     syntax_tree = parse_program();
-
     print_ast(syntax_tree, 0);
 
     if (syntax_error == 0 && current_token == token_count)
@@ -422,7 +361,5 @@ int syntax_analyzer()
         printf("\nSyntax Rejected (Error found)\n");
 
     printf("===== SYNTAX ANALYSIS END =====\n\n");
-
-    // DO NOT free syntax_tree here — main or driver will call free_ast(syntax_tree)
     return syntax_error;
 }

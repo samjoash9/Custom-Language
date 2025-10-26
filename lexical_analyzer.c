@@ -209,8 +209,8 @@ int lexer(const char *src)
         {
             if (skip_multi_line_comment(src, &i))
             {
-                error_found = 1; // mark lexical error
-                break;           // stop scanning
+                error_found = 1;
+                break; // stop scanning
             }
             continue;
         }
@@ -219,15 +219,18 @@ int lexer(const char *src)
         if (isalpha((unsigned char)c) || c == '_')
         {
             get_token_as_dt_or_id(src, temp_token, &i, &t_iter);
+
+            // determine if datatype or identifier
             if (is_datatype(temp_token))
                 add_to_tokens(temp_token, TOK_DATATYPE);
             else
                 add_to_tokens(temp_token, TOK_IDENTIFIER);
+
             reset_tokens(&t_iter, temp_token);
             continue;
         }
 
-        // Integer literal (handle optional sign only if at start or after '(' or '=')
+        // Integer literal
         if (isdigit((unsigned char)c) ||
             ((c == '+' || c == '-') &&
              i + 1 < len && isdigit((unsigned char)src[i + 1]) &&
@@ -239,6 +242,7 @@ int lexer(const char *src)
             continue;
         }
 
+        // character literal
         if (c == '\'')
         {
             int j = i + 1;
@@ -263,7 +267,8 @@ int lexer(const char *src)
                     continue;
                 }
             }
-            // if we reach here, malformed literal
+
+            // if we reach here, then it is error character literal
             printf("Lexer Error: Unterminated character literal\n");
             error_found = 1;
             continue;
