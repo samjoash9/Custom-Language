@@ -69,10 +69,15 @@ ASTNode *create_node(NodeType type, const char *value, ASTNode *left, ASTNode *r
 }
 
 // === FORWARD DECLARATIONS ===
-ASTNode *parse_expression();
+ASTNode *parse_program();
+ASTNode *parse_statement_list();
+ASTNode *parse_statement();
+ASTNode *parse_declaration();
+ASTNode *parse_assignment();
+ASTNode *parse_additive(); // handles + / -
 ASTNode *parse_term();
 ASTNode *parse_factor();
-ASTNode *parse_assignment();
+ASTNode *parse_expression(); // entry: assignment
 
 // === PROGRAM ===
 ASTNode *parse_program()
@@ -81,18 +86,50 @@ ASTNode *parse_program()
 }
 
 // === STATEMENT LIST ===
+// Build a chain of NODE_STATEMENT_LIST nodes where each has left=statement and right=next statement_list
 ASTNode *parse_statement_list()
 {
-    TOKEN *tok = peek();
-    if (!tok)
-        return NULL;
+    ASTNode *head = NULL; // first NODE_STATEMENT_LIST node
+    ASTNode *tail = NULL; // last NODE_STATEMENT_LIST node
 
-    ASTNode *stmt = parse_statement();
-    if (!stmt)
-        return NULL;
+    while (1)
+    {
+        TOKEN *tok = peek();
+        if (!tok)
+            break;
 
-    ASTNode *next = parse_statement_list();
-    return create_node(NODE_STATEMENT_LIST, "STATEMENT_LIST", stmt, next);
+        // Determine if token can start a statement. If not, stop.
+        if (!(tok->type == TOK_DATATYPE ||
+              tok->type == TOK_IDENTIFIER ||
+              tok->type == TOK_INT_LITERAL ||
+              tok->type == TOK_CHAR_LITERAL ||
+              (tok->type == TOK_PARENTHESIS && strcmp(tok->lexeme, "(") == 0) ||
+              (tok->type == TOK_OPERATOR &&
+               (strcmp(tok->lexeme, "+") == 0 || strcmp(tok->lexeme, "-") == 0 ||
+                strcmp(tok->lexeme, "++") == 0 || strcmp(tok->lexeme, "--") == 0))))
+        {
+            break;
+        }
+
+        ASTNode *stmt = parse_statement();
+        if (!stmt)
+            break;
+
+        // Wrap statement in NODE_STATEMENT_LIST node
+        ASTNode *stmt_list_node = create_node(NODE_STATEMENT_LIST, "STATEMENT_LIST", stmt, NULL);
+
+        if (!head)
+        {
+            head = tail = stmt_list_node;
+        }
+        else
+        {
+            tail->right = stmt_list_node;
+            tail = stmt_list_node;
+        }
+    }
+
+    return head;
 }
 
 // === STATEMENT ===
@@ -110,6 +147,7 @@ ASTNode *parse_statement()
     }
     else if (tok->type == TOK_IDENTIFIER)
     {
+        // Lookahead to see if this is an assignment
         TOKEN *next = (current_token + 1 < token_count) ? &tokens[current_token + 1] : NULL;
         if (next && next->type == TOK_OPERATOR &&
             (strcmp(next->lexeme, "=") == 0 || strcmp(next->lexeme, "+=") == 0 ||
@@ -137,8 +175,9 @@ ASTNode *parse_statement()
 // === DECLARATION ===
 ASTNode *parse_declaration()
 {
-    TOKEN *datatype = consume();
-    ASTNode *decl_list = NULL, *last = NULL;
+    TOKEN *datatype = consume(); // consume 'int' or 'char'
+    ASTNode *decl_list = NULL;
+    ASTNode *last = NULL;
 
     while (1)
     {
@@ -148,7 +187,7 @@ ASTNode *parse_declaration()
             error("Expected identifier in declaration");
             break;
         }
-        consume();
+        consume(); // consume identifier
 
         ASTNode *rhs_node = NULL;
         int initialized = 0;
@@ -156,6 +195,7 @@ ASTNode *parse_declaration()
 
         if (match("="))
         {
+            // initializer may be an assignment expression
             rhs_node = parse_expression();
             initialized = 1;
         }
@@ -177,63 +217,84 @@ ASTNode *parse_declaration()
 }
 
 // === ASSIGNMENT ===
+// Implements: ASSIGN_EXPR -> IDENTIFIER ASSIGN_OP ASSIGN_EXPR | ADD_EXPR
 ASTNode *parse_assignment()
 {
-    TOKEN *id = peek();
-    if (!id || id->type != TOK_IDENTIFIER)
-    {
-        error("Expected identifier in assignment");
+    TOKEN *tok = peek();
+    if (!tok)
         return NULL;
-    }
 
-    consume();
-    ASTNode *lhs_node = create_node(NODE_FACTOR, id->lexeme, NULL, NULL);
+    // Save index to backtrack if this is not an assignment
+    int save_index = current_token;
 
-    TOKEN *op = peek();
-    if (!op || op->type != TOK_OPERATOR ||
-        (strcmp(op->lexeme, "=") != 0 && strcmp(op->lexeme, "+=") != 0 &&
-         strcmp(op->lexeme, "-=") != 0 && strcmp(op->lexeme, "*=") != 0 &&
-         strcmp(op->lexeme, "/=") != 0))
+    if (tok->type == TOK_IDENTIFIER)
     {
-        error("Expected assignment operator");
-        return lhs_node;
-    }
+        // Tentatively consume identifier
+        TOKEN id_tok = *consume(); // copy token
 
-    consume(); // consume operator
-
-    ASTNode *rhs_node = NULL;
-    // Support chained '=' assignments
-    if (strcmp(op->lexeme, "=") == 0 && peek() && peek()->type == TOK_IDENTIFIER)
-    {
-        TOKEN *next_op = (current_token + 1 < token_count) ? &tokens[current_token + 1] : NULL;
-        if (next_op && next_op->type == TOK_OPERATOR && strcmp(next_op->lexeme, "=") == 0)
+        TOKEN *op = peek();
+        if (op && op->type == TOK_OPERATOR &&
+            (strcmp(op->lexeme, "=") == 0 || strcmp(op->lexeme, "+=") == 0 ||
+             strcmp(op->lexeme, "-=") == 0 || strcmp(op->lexeme, "*=") == 0 ||
+             strcmp(op->lexeme, "/=") == 0))
         {
-            rhs_node = parse_assignment(); // recursive chaining
+            // It's an assignment operator: consume it
+            TOKEN op_tok = *consume();
+
+            ASTNode *lhs_node = create_node(NODE_FACTOR, id_tok.lexeme, NULL, NULL);
+
+            // Right-hand side: try to parse another assignment (right-recursive)
+            ASTNode *rhs_node = NULL;
+
+            // If next token is identifier and could start another assignment, attempt recursive
+            TOKEN *next = peek();
+            if (next && next->type == TOK_IDENTIFIER)
+            {
+                rhs_node = parse_assignment();
+                // If parse_assignment failed (returned NULL), fall back to additive
+                if (!rhs_node)
+                {
+                    rhs_node = parse_additive();
+                }
+            }
+            else
+            {
+                rhs_node = parse_additive();
+            }
+
+            return create_node(NODE_ASSIGNMENT, op_tok.lexeme, lhs_node, rhs_node);
         }
         else
         {
-            rhs_node = parse_expression();
+            // Not an assignment; backtrack and parse additive expression
+            current_token = save_index;
+            return parse_additive();
         }
     }
-    else
-    {
-        rhs_node = parse_expression();
-    }
 
-    return create_node(NODE_ASSIGNMENT, op->lexeme, lhs_node, rhs_node);
+    // Not identifier: parse additive expression
+    return parse_additive();
 }
 
-// === EXPRESSION / TERM / FACTOR ===
+// === EXPRESSION ENTRY POINT ===
 ASTNode *parse_expression()
+{
+    // Expression entry is assignment (per grammar)
+    return parse_assignment();
+}
+
+// === ADDITIVE / TERM / FACTOR ===
+ASTNode *parse_additive()
 {
     ASTNode *node = parse_term();
     TOKEN *tok = peek();
 
-    while (tok && (strcmp(tok->lexeme, "+") == 0 || strcmp(tok->lexeme, "-") == 0))
+    while (tok && tok->type == TOK_OPERATOR &&
+           (strcmp(tok->lexeme, "+") == 0 || strcmp(tok->lexeme, "-") == 0))
     {
-        TOKEN *op = consume();
+        TOKEN op = *consume();
         ASTNode *right = parse_term();
-        node = create_node(NODE_EXPRESSION, op->lexeme, node, right);
+        node = create_node(NODE_EXPRESSION, op.lexeme, node, right);
         tok = peek();
     }
     return node;
@@ -244,11 +305,12 @@ ASTNode *parse_term()
     ASTNode *node = parse_factor();
     TOKEN *tok = peek();
 
-    while (tok && (strcmp(tok->lexeme, "*") == 0 || strcmp(tok->lexeme, "/") == 0))
+    while (tok && tok->type == TOK_OPERATOR &&
+           (strcmp(tok->lexeme, "*") == 0 || strcmp(tok->lexeme, "/") == 0))
     {
-        TOKEN *op = consume();
+        TOKEN op = *consume();
         ASTNode *right = parse_factor();
-        node = create_node(NODE_TERM, op->lexeme, node, right);
+        node = create_node(NODE_TERM, op.lexeme, node, right);
         tok = peek();
     }
     return node;
@@ -265,8 +327,7 @@ ASTNode *parse_factor()
         (strcmp(tok->lexeme, "+") == 0 || strcmp(tok->lexeme, "-") == 0 ||
          strcmp(tok->lexeme, "++") == 0 || strcmp(tok->lexeme, "--") == 0))
     {
-        TOKEN op_token = *tok;
-        consume();
+        TOKEN op_token = *consume();
         ASTNode *factor_node = parse_factor();
         return create_node(NODE_UNARY_OP, op_token.lexeme, factor_node, NULL);
     }
@@ -284,8 +345,8 @@ ASTNode *parse_factor()
     // Identifier or literal
     else if (tok->type == TOK_IDENTIFIER || tok->type == TOK_INT_LITERAL || tok->type == TOK_CHAR_LITERAL)
     {
-        consume();
-        node = create_node(NODE_FACTOR, tok->lexeme, NULL, NULL);
+        TOKEN literal = *consume();
+        node = create_node(NODE_FACTOR, literal.lexeme, NULL, NULL);
     }
     else
     {
@@ -294,13 +355,12 @@ ASTNode *parse_factor()
         return NULL;
     }
 
-    // Postfix
+    // Postfix (e.g., i++)
     tok = peek();
     while (tok && tok->type == TOK_OPERATOR &&
            (strcmp(tok->lexeme, "++") == 0 || strcmp(tok->lexeme, "--") == 0))
     {
-        TOKEN op_token = *tok;
-        consume();
+        TOKEN op_token = *consume();
         node = create_node(NODE_POSTFIX_OP, op_token.lexeme, node, NULL);
         tok = peek();
     }

@@ -138,19 +138,21 @@ void display_tokens()
     for (int i = 0; i < token_count; i++)
     {
 
-        if (i == token_count - 1){
+        if (i == token_count - 1)
+        {
             printf("Token %d: %-12s | %s",
-               i + 1,
-               token_type_to_string(tokens[i].type),
-               tokens[i].lexeme);
+                   i + 1,
+                   token_type_to_string(tokens[i].type),
+                   tokens[i].lexeme);
         }
-        else{
+        else
+        {
             printf("Token %d: %-12s | %s\n",
-                i + 1,
-                token_type_to_string(tokens[i].type),
-                tokens[i].lexeme);
-            }
+                   i + 1,
+                   token_type_to_string(tokens[i].type),
+                   tokens[i].lexeme);
         }
+    }
     printf("\n------------------\n");
 }
 
@@ -251,34 +253,42 @@ int lexer(const char *src)
             continue;
         }
 
-        // character literal
+        // Character literal
         if (c == '\'')
         {
             int j = i + 1;
-            char ch = '\0';
+            char literal[5] = {0}; // enough to hold things like: '\n' + null terminator
+            int idx = 0;
+
+            // opening quote
+            literal[idx++] = '\'';
+
             if (j < len)
             {
-                if (src[j] == '\\' && j + 1 < len) // escape
+                if (src[j] == '\\' && j + 1 < len) // escaped character (e.g. '\n', '\0', '\'')
                 {
-                    ch = src[j + 1];
+                    literal[idx++] = '\\';
+                    literal[idx++] = src[j + 1];
                     j += 2;
                 }
-                else
+                else // normal single char, e.g. 'a'
                 {
-                    ch = src[j];
+                    literal[idx++] = src[j];
                     j += 1;
                 }
+
+                // Check for closing quote
                 if (j < len && src[j] == '\'')
                 {
-                    char tmp[2] = {ch, '\0'};
-                    add_to_tokens(tmp, TOK_CHAR_LITERAL);
+                    literal[idx++] = '\'';
+                    literal[idx] = '\0';
+                    add_to_tokens(literal, TOK_CHAR_LITERAL);
                     i = j; // advance past closing quote
                     continue;
                 }
             }
 
-            // if we reach here, then it is error character literal
-            printf("Lexer Error: Unterminated character literal\n");
+            printf("Lexer Error: Unterminated or invalid character literal\n");
             error_found = 1;
             continue;
         }
@@ -332,7 +342,6 @@ int lexer(const char *src)
     }
 
     display_tokens();
-
 
     printf("===== LEXICAL ANALYSIS END =====\n");
 
