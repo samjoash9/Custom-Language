@@ -1,4 +1,3 @@
-// intermediate_code_generator.c
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -27,6 +26,48 @@ static char *newTemp()
     return strdup(buf);
 }
 
+// ✅ [NEW] Convert char literal (e.g. 'a', '\n') to ASCII string value
+static void convertCharLiteral(char *value)
+{
+    if (!value || strlen(value) < 3)
+        return;
+
+    // Simple character literal: 'a'
+    if (value[0] == '\'' && value[2] == '\'' && value[1] != '\\')
+    {
+        char c = value[1];
+        sprintf(value, "%d", (int)c);
+    }
+    // Escaped character literal: '\n', '\t', '\0', '\\', '\''
+    else if (value[0] == '\'' && value[1] == '\\' && value[strlen(value) - 1] == '\'')
+    {
+        char esc = value[2];
+        int val = 0;
+        switch (esc)
+        {
+        case 'n':
+            val = 10;
+            break;
+        case 't':
+            val = 9;
+            break;
+        case '0':
+            val = 0;
+            break;
+        case '\'':
+            val = 39;
+            break;
+        case '\\':
+            val = 92;
+            break;
+        default:
+            val = esc;
+            break;
+        }
+        sprintf(value, "%d", val);
+    }
+}
+
 static void emit(const char *result, const char *arg1, const char *op, const char *arg2)
 {
     TACInstruction *tmp = realloc(code, sizeof(TACInstruction) * (codeCount + 1));
@@ -41,6 +82,11 @@ static void emit(const char *result, const char *arg1, const char *op, const cha
     snprintf(code[codeCount].arg1, sizeof(code[codeCount].arg1), "%s", arg1 ? arg1 : "");
     snprintf(code[codeCount].op, sizeof(code[codeCount].op), "%s", op ? op : "");
     snprintf(code[codeCount].arg2, sizeof(code[codeCount].arg2), "%s", arg2 ? arg2 : "");
+
+    // ✅ Convert char literals in TAC arguments to ASCII
+    convertCharLiteral(code[codeCount].arg1);
+    convertCharLiteral(code[codeCount].arg2);
+
     codeCount++;
 }
 
@@ -52,7 +98,11 @@ static char *generateExpression(ASTNode *node)
 
     // Leaf node (identifier or literal)
     if (node->left == NULL && node->right == NULL)
-        return strdup(node->value ? node->value : "");
+    {
+        char *val = strdup(node->value ? node->value : "");
+        convertCharLiteral(val); // ✅ also convert if this leaf is a literal
+        return val;
+    }
 
     // Assignment (simple or compound)
     if (node->type == NODE_ASSIGNMENT && node->left && node->right)
@@ -206,7 +256,8 @@ static void removeRedundantTemporaries()
         TACInstruction *cur = &optimizedCode[i];
         TACInstruction *next = &optimizedCode[i + 1];
 
-        if (cur->result[0] == 't' && strcmp(next->arg1, cur->result) == 0 && strcmp(next->op, "=") == 0){
+        if (cur->result[0] == 't' && strcmp(next->arg1, cur->result) == 0 && strcmp(next->op, "=") == 0)
+        {
             snprintf(next->arg1, sizeof(next->arg1), "%s", cur->arg1);
             snprintf(next->op, sizeof(next->op), "%s", cur->op);
             snprintf(next->arg2, sizeof(next->arg2), "%s", cur->arg2);

@@ -1,44 +1,62 @@
-// A. Program
-S 			→ STATEMENT_LIST
+/* A. Program */
+S → STATEMENT_LIST
 
-// B. Statement
-STATEMENT_LIST 		→ STATEMENT STATEMENT_LIST | ε
-STATEMENT 		→ DECLARATION ';' | ASSIGNMENT ';' | EXPRESSION ';'
+/* B. Statements */
+STATEMENT_LIST → STATEMENT STATEMENT_LIST | ε
+STATEMENT → DECLARATION ';' 
+          | ASSIGNMENT ';'
+          | EXPRESSION ';'
 
-// C. Declaration
-DECLARATION 		→ DATATYPE INIT_DECLARATOR_LIST
-INIT_DECLARATOR_LIST 	→ INIT_DECLARATOR | INIT_DECLARATOR ',' INIT_DECLARATOR_LIST
-INIT_DECLARATOR 	→ IDENTIFIER | IDENTIFIER '=' EXPRESSION
-DATATYPE 		→ 'char' | 'int'
+/* C. Declarations */
+DECLARATION → DATATYPE INIT_DECLARATOR_LIST
+INIT_DECLARATOR_LIST → INIT_DECLARATOR 
+                      | INIT_DECLARATOR ',' INIT_DECLARATOR_LIST
+INIT_DECLARATOR → IDENTIFIER 
+                | IDENTIFIER '=' EXPRESSION
+DATATYPE → 'char' | 'int'
 
-// D. Assignment
-ASSIGNMENT 		→ IDENTIFIER ASSIGN_OP EXPRESSION
-ASSIGN_OP 		→ '=' | '+=' | '-=' | '*=' | '/='
+/* D. Assignment (assignment is an expression, right-associative) */
+ASSIGNMENT → ASSIGN_EXPR
+ASSIGN_EXPR → IDENTIFIER ASSIGN_OP ASSIGN_EXPR
+            | ADD_EXPR
+ASSIGN_OP → '=' | '+=' | '-=' | '*=' | '/='
 
-// E. Expression
-EXPRESSION 		→ TERM EXPRESSION_PRIME
-EXPRESSION_PRIME 	→ '+' TERM EXPRESSION_PRIME | '-' TERM EXPRESSION_PRIME | ε
-TERM 			→ FACTOR TERM_PRIME
-TERM_PRIME 		→ '*' FACTOR TERM_PRIME | '/' FACTOR TERM_PRIME | ε
+/* E. Additive / Multiplicative expressions */
+ADD_EXPR → MULT_EXPR ADD_EXPR_PRIME
+ADD_EXPR_PRIME → '+' MULT_EXPR ADD_EXPR_PRIME
+                | '-' MULT_EXPR ADD_EXPR_PRIME
+                | ε
+MULT_EXPR → UNARY_EXPR MULT_EXPR_PRIME
+MULT_EXPR_PRIME → '*' UNARY_EXPR MULT_EXPR_PRIME
+                | '/' UNARY_EXPR MULT_EXPR_PRIME
+                | ε
 
-// F. Factor
-FACTOR 			→ PRIMARY FACTOR_TAIL
-PRIMARY 		→ IDENTIFIER | INT_LITERAL | CHAR_LITERAL | '(' EXPRESSION ')' | UNARY_OP FACTOR
-FACTOR_TAIL 		→ POSTFIX_OP FACTOR_TAIL | ε
+/* F. Unary / Postfix / Primary */
+UNARY_EXPR → UNARY_OP UNARY_EXPR
+           | POSTFIX_EXPR
+POSTFIX_EXPR → PRIMARY POSTFIX_EXPR_PRIME
+POSTFIX_EXPR_PRIME → POSTFIX_OP POSTFIX_EXPR_PRIME
+                   | ε
+PRIMARY → IDENTIFIER
+        | INT_LITERAL
+        | CHAR_LITERAL
+        | '(' EXPRESSION ')'
 
-// G. Unary / Postfix Operators
-UNARY_OP 		→ '+' | '-' | '++' | '--'
-POSTFIX_OP 		→ '++' | '--'
+/* G. Operators */
+UNARY_OP → '+' | '-' | '++' | '--'
+POSTFIX_OP → '++' | '--'
 
-// H. Identifiers, Integers, Characters
-IDENTIFIER → L (L | D | U)*
-L = a | b | c | ... | z | A | B | C | ... | Z
-D = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9
-U = _
+/* H. Expression entry point */
+EXPRESSION → ASSIGNMENT
 
-INT_LITERAL → ('-' | ε) (0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9)+
-
+/* I. Lexical placeholders (not EBNF; define tokens in lexer) */
+IDENTIFIER → LETTER IDENT_TAIL
+IDENT_TAIL → LETTER IDENT_TAIL | DIGIT IDENT_TAIL | '_' IDENT_TAIL | ε
+LETTER → 'a' | 'b' | ... | 'z' | 'A' | ... | 'Z'
+DIGIT → '0' | '1' | ... | '9'
+INT_LITERAL → DIGIT INT_TAIL
+INT_TAIL → DIGIT INT_TAIL | ε
 CHAR_LITERAL → '\'' CHARACTER '\''
 CHARACTER → NON_ESCAPE_CHAR | ESCAPE_SEQUENCE
-NON_ESCAPE_CHAR → (a-z | A-Z | 0-9 | space | symbol_except_\'_and_\\)
-ESCAPE_SEQUENCE → '\\' ( 'n' | 't' | 'r' | '\'' | '\"' | '\\' | '0' )
+NON_ESCAPE_CHAR → (all allowed char except '\'' and '\\' and control chars)
+ESCAPE_SEQUENCE → '\\' ( 'n' | 't' | 'r' | '\'' | '"' | '\\' | '0' )
