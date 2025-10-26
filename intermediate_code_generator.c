@@ -23,7 +23,7 @@ TACInstruction *getOptimizedCode(int *count)
 static char *newTemp()
 {
     char buf[32];
-    snprintf(buf, sizeof(buf), "t%d", tempCount++);
+    snprintf(buf, sizeof(buf), "temp%d", tempCount++);
     return strdup(buf);
 }
 
