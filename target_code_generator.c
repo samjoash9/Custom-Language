@@ -178,7 +178,11 @@ void perform_operation(char *result, char *arg1, char *op, char *arg2, Register 
         initialize_registers();
     }
     else
+    {
         strcpy(reg3->assigned_temp, result);
+        reg1->used = 0;
+        reg2->used = 0;
+    }
 }
 
 void generate_code_section()
@@ -523,12 +527,6 @@ void generate_code_section()
 
         add_assembly_line("\n");
     }
-
-    // for (int i = 0; i < MAX_REGISTERS; i++)
-    // {
-    //     if (registers[i].used)
-    //         printf("%s (%s) = %s\n", registers[i].name, (registers[i].used ? "used" : "unused"), registers[i].assigned_temp);
-    // }
 }
 
 void generate_target_code()
