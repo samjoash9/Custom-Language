@@ -44,7 +44,7 @@ void convert_to_binary(int num, int bits, char *output)
     output[bits] = '\0';
     for (int i = bits - 1; i >= 0; i--)
     {
-        output[i] = (num & 1) ? '1' : '0';
+        output[i] = (num & 1) ? '1' : '0'; // logical comparison for each bit
         num >>= 1;
     }
 }

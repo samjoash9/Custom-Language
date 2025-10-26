@@ -56,7 +56,7 @@ int main()
     }
 
     // === STEP 3: SEMANTIC ANALYSIS ===
-    printf("\n====== SEMANTIC ANALYZER ======\n");
+    printf("====== SEMANTIC ANALYZER ======\n");
     int semantic_status = semantic_analyzer();
     if (semantic_status != 0)
     {

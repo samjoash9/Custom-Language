@@ -206,10 +206,7 @@ static void removeRedundantTemporaries()
         TACInstruction *cur = &optimizedCode[i];
         TACInstruction *next = &optimizedCode[i + 1];
 
-        if (cur->result[0] == 't' &&
-            strcmp(next->arg1, cur->result) == 0 &&
-            strcmp(next->op, "=") == 0)
-        {
+        if (cur->result[0] == 't' && strcmp(next->arg1, cur->result) == 0 && strcmp(next->op, "=") == 0){
             snprintf(next->arg1, sizeof(next->arg1), "%s", cur->arg1);
             snprintf(next->op, sizeof(next->op), "%s", cur->op);
             snprintf(next->arg2, sizeof(next->arg2), "%s", cur->arg2);
