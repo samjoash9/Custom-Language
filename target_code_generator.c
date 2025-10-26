@@ -22,11 +22,13 @@ void display_assembly_code()
 {
     printf("===== ASSEMBLY CODE =====\n");
 
-    for (int i = 0; i < assembly_code_count; i++) {
+    for (int i = 0; i < assembly_code_count; i++)
+    {
         // Copy pointer to make it easier to read
         char *line = assembly_code[i].assembly;
         // If this is the last line and it ends with '\n', remove it
-        if (i == assembly_code_count - 1) {
+        if (i == assembly_code_count - 1)
+        {
             size_t len = strlen(line);
             if (len > 0 && line[len - 1] == '\n')
                 line[len - 1] = '\0';
@@ -35,7 +37,6 @@ void display_assembly_code()
     }
     printf("===== ASSEMBLY CODE END =====\n\n");
 }
-
 
 void initialize_registers()
 {
@@ -98,10 +99,19 @@ Register *get_available_register()
 
 int is_tac_temporary(char *tac)
 {
-    if (tac[0] == 't' && isdigit(tac[1]))
-        return 1;
+    // Check prefix
+    if (strncmp(tac, "temp", 4) != 0)
+        return 0;
 
-    return 0;
+    // Check that there are digits after "temp"
+    for (int i = 4; tac[i] != '\0'; i++)
+    {
+        if (!isdigit((unsigned char)tac[i]))
+            return 0;
+    }
+
+    // Must have at least one digit after "temp"
+    return strlen(tac) > 4;
 }
 
 Register *find_temp_reg(char *temp)
@@ -161,10 +171,13 @@ void display_tac_as_comment(TACInstruction ins)
 
 void perform_operation(char *result, char *arg1, char *op, char *arg2, Register *reg1, Register *reg2, Register *reg3, int is_for_temporary)
 {
+    printf("%s\n", op);
+
     // determine operation
     if (strcmp(op, "+") == 0)
     {
         add_assembly_line("daddu %s, %s, %s\n", reg3->name, reg1->name, reg2->name);
+        printf("nag add\n");
     }
     else if (strcmp(op, "-") == 0)
     {
@@ -185,9 +198,27 @@ void perform_operation(char *result, char *arg1, char *op, char *arg2, Register 
     {
         add_assembly_line("sd %s, %s(r0)\n", reg3->name, result);
 
-        // reset registers
-        initialize_registers();
+        // Free only the registers used in this operation so temps in other registers survive.
+        if (reg1)
+        {
+            reg1->used = 0;
+            reg1->assigned_temp[0] = '\0';
+        }
+        if (reg2)
+        {
+            reg2->used = 0;
+            reg2->assigned_temp[0] = '\0';
+        }
+        if (reg3)
+        {
+            reg3->used = 0;
+            reg3->assigned_temp[0] = '\0';
+        }
+
+        // Debug
+        // printf("Freed reg1=%s reg2=%s reg3=%s\n", reg1?reg1->name:"-", reg2?reg2->name:"-", reg3?reg3->name:"-");
     }
+
     else
     {
         strcpy(reg3->assigned_temp, result);
@@ -212,6 +243,7 @@ void generate_code_section()
             if (is_in_data_storage(ins.result) &&
                 (isdigit(ins.arg1[0]) || (ins.arg1[0] == '-' && isdigit(ins.arg1[1]))))
             {
+                printf("sulod1");
                 Register *reg = get_available_register();
                 reg->used = 1;
 
@@ -242,16 +274,13 @@ void generate_code_section()
             // case 4 : temp = variable
             else if (is_tac_temporary(ins.result) && is_in_data_storage(ins.arg1))
             {
+                printf("sulod3\n");
                 Register *var_reg = get_available_register();
-                var_reg->name;
-                Register *temp_reg = find_temp_reg(ins.result);
+                var_reg->used = 1;
 
                 add_assembly_line("ld %s, %s(r0)\n", var_reg->name, ins.arg1);
-                add_assembly_line("daddu %s, %s, r0\n", temp_reg->name, var_reg->name);
-
-                temp_reg->used = 1;
-                strcpy(temp_reg->assigned_temp, ins.result);
-                var_reg->used = 0;
+                // the available register now becomes the temporary
+                strcpy(var_reg->assigned_temp, ins.result);
             }
             // case 5 : temp = constant
             else if (is_tac_temporary(ins.result) && is_digit(ins.arg1))
@@ -318,6 +347,8 @@ void generate_code_section()
             // variable = variable op constant
             else if (is_in_data_storage(ins.result) && is_in_data_storage(ins.arg1) && is_digit(ins.arg2))
             {
+                printf("sulod2\n");
+
                 add_assembly_line("ld %s, %s(r0)\n", reg1->name, ins.arg1);
                 add_assembly_line("daddiu %s, r0, %s\n", reg2->name, ins.arg2);
 
@@ -365,6 +396,7 @@ void generate_code_section()
             // variable = variable op temp
             else if (is_in_data_storage(ins.result) && is_in_data_storage(ins.arg1) && is_tac_temporary(ins.arg2))
             {
+                printf("Sulod4\n");
                 reg1->used = 0;
                 reg2->used = 0;
                 reg3->used = 0;
@@ -372,6 +404,12 @@ void generate_code_section()
                 reg1 = get_available_register();
                 reg1->used = 1;
                 reg2 = find_temp_reg(ins.arg2);
+
+                if (reg2 == NULL)
+                {
+                    printf("WALA NAKITA");
+                }
+
                 reg2->used = 1;
                 reg3 = get_available_register();
                 reg3->used = 1;

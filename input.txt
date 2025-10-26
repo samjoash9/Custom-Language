@@ -1,2 +1,4 @@
-int a = 1;
-int b = ++a + a++;
+    int a = 2, b = 3, c = 4;
+    int result;
+
+    result = ++a * b-- + (--b + a++) * (c-- - ++a);
