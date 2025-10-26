@@ -22,13 +22,11 @@ void display_assembly_code()
 {
     printf("===== ASSEMBLY CODE =====\n");
 
-    for (int i = 0; i < assembly_code_count; i++)
-    {
+    for (int i = 0; i < assembly_code_count; i++) {
         // Copy pointer to make it easier to read
         char *line = assembly_code[i].assembly;
         // If this is the last line and it ends with '\n', remove it
-        if (i == assembly_code_count - 1)
-        {
+        if (i == assembly_code_count - 1) {
             size_t len = strlen(line);
             if (len > 0 && line[len - 1] == '\n')
                 line[len - 1] = '\0';
@@ -37,6 +35,7 @@ void display_assembly_code()
     }
     printf("===== ASSEMBLY CODE END =====\n\n");
 }
+
 
 void initialize_registers()
 {
@@ -92,7 +91,6 @@ Register *get_available_register()
 
     // if we reach this point, then there is no available register to allocate
     printf("You've reach the limit of registers in MIPS64.\n");
-    display_assembly_code();
     exit(0);
 
     return NULL;
@@ -100,19 +98,10 @@ Register *get_available_register()
 
 int is_tac_temporary(char *tac)
 {
-    // Check prefix
-    if (strncmp(tac, "temp", 4) != 0)
-        return 0;
+    if (tac[0] == 't' && isdigit(tac[1]))
+        return 1;
 
-    // Check that there are digits after "temp"
-    for (int i = 4; tac[i] != '\0'; i++)
-    {
-        if (!isdigit((unsigned char)tac[i]))
-            return 0;
-    }
-
-    // Must have at least one digit after "temp"
-    return strlen(tac) > 4;
+    return 0;
 }
 
 Register *find_temp_reg(char *temp)
