@@ -243,6 +243,7 @@ void generate_code_section()
             else if (is_tac_temporary(ins.result) && is_in_data_storage(ins.arg1))
             {
                 Register *var_reg = get_available_register();
+                var_reg->name;
                 Register *temp_reg = find_temp_reg(ins.result);
 
                 add_assembly_line("ld %s, %s(r0)\n", var_reg->name, ins.arg1);
@@ -250,6 +251,7 @@ void generate_code_section()
 
                 temp_reg->used = 1;
                 strcpy(temp_reg->assigned_temp, ins.result);
+                var_reg->used = 0;
             }
             // case 5 : temp = constant
             else if (is_tac_temporary(ins.result) && is_digit(ins.arg1))
@@ -540,6 +542,36 @@ void generate_code_section()
     }
 }
 
+void output_assembly_file()
+{
+    FILE *file = fopen("output_assembly.txt", "w");
+
+    if (!file)
+    {
+        printf("Error: Unable to create output_assembly.txt\n");
+        return;
+    }
+
+    for (int i = 0; i < assembly_code_count; i++)
+    {
+        char *line = assembly_code[i].assembly;
+
+        // Ensure no extra newline at the end
+        if (i == assembly_code_count - 1)
+        {
+            size_t len = strlen(line);
+            if (len > 0 && line[len - 1] == '\n')
+                line[len - 1] = '\0';
+        }
+
+        fprintf(file, "%s", line);
+    }
+
+    fclose(file);
+
+    printf("\n✅ Assembly code successfully written to output_assembly.txt\n");
+}
+
 void generate_target_code()
 {
     initialize_registers();
@@ -547,4 +579,5 @@ void generate_target_code()
     generate_code_section();
     // display_data_storage();
     display_assembly_code();
+    output_assembly_file();
 }

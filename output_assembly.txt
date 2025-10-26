@@ -1,0 +1,26 @@
+.data
+a: .word64 0
+b: .word64 0
+
+.code
+; a = 1
+daddiu r1, r0, 1
+sd r1, a(r0)
+
+; a = a + 1
+ld r1, a(r0)
+daddiu r2, r0, 1
+daddu r3, r1, r2
+sd r3, a(r0)
+
+; a = a + 1
+ld r1, a(r0)
+daddiu r2, r0, 1
+daddu r3, r1, r2
+sd r3, a(r0)
+
+; b = a + a
+ld r1, a(r0)
+ld r2, a(r0)
+daddu r3, r1, r2
+sd r3, b(r0)
