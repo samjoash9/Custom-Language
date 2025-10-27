@@ -7,8 +7,6 @@
 #include "headers/syntax_analyzer.h"
 
 // === GLOBALS FROM LEXICAL ANALYZER ===
-extern TOKEN tokens[MAX_TOKENS];
-extern int token_count;
 int current_token = 0;
 int syntax_error = 0;
 ASTNode *syntax_tree = NULL;
@@ -68,37 +66,28 @@ ASTNode *create_node(NodeType type, const char *value, ASTNode *left, ASTNode *r
     return node;
 }
 
-// === FORWARD DECLARATIONS ===
-ASTNode *parse_program();
-ASTNode *parse_statement_list();
-ASTNode *parse_statement();
-ASTNode *parse_declaration();
-ASTNode *parse_assignment();
-ASTNode *parse_additive(); // handles + / -
-ASTNode *parse_term();
-ASTNode *parse_factor();
-ASTNode *parse_expression(); // entry: assignment
-
 // === PROGRAM ===
+// S → STATEMENT_LIST
 ASTNode *parse_program()
 {
     return create_node(NODE_START, "START", parse_statement_list(), NULL);
 }
 
 // === STATEMENT LIST ===
-// Build a chain of NODE_STATEMENT_LIST nodes where each has left=statement and right=next statement_list
+// STATEMENT_LIST → STATEMENT STATEMENT_LIST | ε
 ASTNode *parse_statement_list()
 {
-    ASTNode *head = NULL; // first NODE_STATEMENT_LIST node
-    ASTNode *tail = NULL; // last NODE_STATEMENT_LIST node
+    ASTNode *head = NULL; // holds the first statement list
+    ASTNode *tail = NULL; // most recent node
 
+    // loop continues reading tokens until no valid statements are left.
     while (1)
     {
         TOKEN *tok = peek();
         if (!tok)
             break;
 
-        // Determine if token can start a statement. If not, stop.
+        // Determine if token can start a statement. If not, stop. (mimic epsilon)
         if (!(tok->type == TOK_DATATYPE ||
               tok->type == TOK_IDENTIFIER ||
               tok->type == TOK_INT_LITERAL ||
@@ -111,6 +100,7 @@ ASTNode *parse_statement_list()
             break;
         }
 
+        // STATEMENT → DECLARATION ';' | ASSIGNMENT ';' | EXPRESSION ';'
         ASTNode *stmt = parse_statement();
         if (!stmt)
             break;
@@ -118,14 +108,13 @@ ASTNode *parse_statement_list()
         // Wrap statement in NODE_STATEMENT_LIST node
         ASTNode *stmt_list_node = create_node(NODE_STATEMENT_LIST, "STATEMENT_LIST", stmt, NULL);
 
+        // Link Into the List
         if (!head)
-        {
-            head = tail = stmt_list_node;
-        }
+            head = tail = stmt_list_node; // set as head and tail
         else
         {
-            tail->right = stmt_list_node;
-            tail = stmt_list_node;
+            tail->right = stmt_list_node; // attach to the right of the previous tail
+            tail = stmt_list_node;        // add statement list to list
         }
     }
 
@@ -133,6 +122,7 @@ ASTNode *parse_statement_list()
 }
 
 // === STATEMENT ===
+// STATEMENT → DECLARATION ';' | ASSIGNMENT ';' | EXPRESSION ';'
 ASTNode *parse_statement()
 {
     TOKEN *tok = peek();
@@ -141,14 +131,17 @@ ASTNode *parse_statement()
 
     ASTNode *stmt_node = NULL;
 
+    // determine of declaration
     if (tok->type == TOK_DATATYPE)
     {
         stmt_node = parse_declaration();
     }
+    // determine if assignment
     else if (tok->type == TOK_IDENTIFIER)
     {
         // Lookahead to see if this is an assignment
         TOKEN *next = (current_token + 1 < token_count) ? &tokens[current_token + 1] : NULL;
+
         if (next && next->type == TOK_OPERATOR &&
             (strcmp(next->lexeme, "=") == 0 || strcmp(next->lexeme, "+=") == 0 ||
              strcmp(next->lexeme, "-=") == 0 || strcmp(next->lexeme, "*=") == 0 ||
@@ -161,6 +154,7 @@ ASTNode *parse_statement()
             stmt_node = parse_expression();
         }
     }
+    // determine if expression only
     else
     {
         stmt_node = parse_expression();
@@ -173,9 +167,18 @@ ASTNode *parse_statement()
 }
 
 // === DECLARATION ===
+/*
+DECLARATION             → DATATYPE INIT_DECLARATOR_LIST
+INIT_DECLARATOR_LIST    → INIT_DECLARATOR  | INIT_DECLARATOR ',' INIT_DECLARATOR_LIST
+INIT_DECLARATOR         → IDENTIFIER  | IDENTIFIER '=' EXPRESSION
+DATATYPE                → 'char' | 'int'
+*/
 ASTNode *parse_declaration()
 {
-    TOKEN *datatype = consume(); // consume 'int' or 'char'
+    // DECLARATION → DATATYPE INIT_DECLARATOR_LIST
+    //    DATATYPE → 'char' | 'int'
+    TOKEN *datatype = consume();
+
     ASTNode *decl_list = NULL;
     ASTNode *last = NULL;
 
