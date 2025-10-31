@@ -29,6 +29,8 @@ typedef struct KnownVar
 {
     char *name;
     SEM_TEMP temp;
+    int initialized; /* 1 if we know it was initialized (semantic-known) */
+    int used;        /* 1 if variable was used somewhere (semantic pass) */
     struct KnownVar *next;
 } KnownVar;
 

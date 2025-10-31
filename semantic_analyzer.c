@@ -6,22 +6,22 @@
 #include <stdarg.h>
 
 #include "headers/semantic_analyzer.h"
-#include "headers/symbol_table.h"    /* your provided symbol table header */
-#include "headers/syntax_analyzer.h" /* ASTNode and syntax_tree global */
+#include "headers/symbol_table.h"
+#include "headers/syntax_analyzer.h"
 
 /* ----------------- Internal storage ----------------- */
 
-/* Temps array (for bookkeeping, you can inspect if needed) */
 static SEM_TEMP *sem_temps = NULL;
 static size_t sem_temps_capacity = 0;
 static size_t sem_temps_count = 0;
 static int sem_next_temp_id = 1;
 
-/* Known-vars linked list (semantic-only) */
 static KnownVar *known_vars_head = NULL;
-
-/* error tracking */
 static int sem_errors = 0;
+
+/* ----------------- Forward declarations ----------------- */
+static SEM_TEMP evaluate_expression(ASTNode *node);
+static void analyze_statement_list(ASTNode *stmt_list);
 
 /* ----------------- Helpers ----------------- */
 
@@ -29,6 +29,18 @@ static void sem_record_error(ASTNode *node, const char *fmt, ...)
 {
     sem_errors++;
     fprintf(stderr, "Semantic Error: ");
+    va_list ap;
+    va_start(ap, fmt);
+    vfprintf(stderr, fmt, ap);
+    va_end(ap);
+    if (node && node->value)
+        fprintf(stderr, " (node: '%s')", node->value);
+    fprintf(stderr, "\n");
+}
+
+static void sem_record_warning(ASTNode *node, const char *fmt, ...)
+{
+    fprintf(stderr, "Semantic Warning: ");
     va_list ap;
     va_start(ap, fmt);
     vfprintf(stderr, fmt, ap);
@@ -57,11 +69,7 @@ static int ensure_temp_capacity(void)
 
 static SEM_TEMP make_temp(SEM_TYPE type, int is_const, long val, ASTNode *node)
 {
-    if (!ensure_temp_capacity())
-    {
-        /* fatal */
-        exit(1);
-    }
+    ensure_temp_capacity();
     SEM_TEMP t;
     t.id = sem_next_temp_id++;
     t.type = type;
@@ -72,34 +80,43 @@ static SEM_TEMP make_temp(SEM_TYPE type, int is_const, long val, ASTNode *node)
     return t;
 }
 
-/* Known var helpers */
+/* ----------------- Known variable management ----------------- */
+
 static KnownVar *find_known_var(const char *name)
 {
-    KnownVar *k = known_vars_head;
-    while (k)
-    {
+    for (KnownVar *k = known_vars_head; k; k = k->next)
         if (strcmp(k->name, name) == 0)
             return k;
-        k = k->next;
-    }
     return NULL;
 }
 
-static void set_known_var(const char *name, SEM_TEMP t)
+/* set_known_var stores a semantic-only value for a variable.
+   Does NOT modify the original symbol_table. Initializes used=0 unless it exists already. */
+static void set_known_var(const char *name, SEM_TEMP t, int initialized)
 {
     KnownVar *k = find_known_var(name);
     if (k)
     {
         k->temp = t;
+        k->initialized = initialized;
+        /* do not reset 'used' because prior uses are still relevant */
         return;
     }
     k = malloc(sizeof(KnownVar));
+    if (!k)
+    {
+        fprintf(stderr, "Out of memory in set_known_var\n");
+        exit(1);
+    }
     k->name = strdup(name);
     k->temp = t;
+    k->initialized = initialized;
+    k->used = 0;
     k->next = known_vars_head;
     known_vars_head = k;
 }
 
+/* remove semantic-known entry (e.g., on non-constant assignment) */
 static void remove_known_var(const char *name)
 {
     KnownVar **pp = &known_vars_head;
@@ -115,6 +132,14 @@ static void remove_known_var(const char *name)
         }
         pp = &(*pp)->next;
     }
+}
+
+/* mark variable as used (for warnings) */
+static void mark_known_var_used(const char *name)
+{
+    KnownVar *k = find_known_var(name);
+    if (k)
+        k->used = 1;
 }
 
 /* convert symbol_table datatype to SEM_TYPE */
@@ -144,56 +169,138 @@ static int try_parse_int(const char *s, long *out)
     return 0;
 }
 
-/* lookup variable: first check known_vars (semantic-only), else check symbol_table
-   return 1 if variable exists, and fills out SEM_TEMP (is_constant if known), 0 otherwise */
-static int lookup_variable_as_temp(const char *name, SEM_TEMP *out)
+/* ----------------- Try evaluate subtree as constant -----------------
+   Returns 1 if the subtree is compile-time-evaluable to an integer, with value in *out.
+   Uses:
+     - integer literals
+     - char literals
+     - semantic-known variables (known_vars list)
+     - symbol_table entries if initialized and value_str parsable
+     - recursively evaluates +, -, *, / when operands are constant
+   Conservative: returns 0 if any part is unknown or division by zero would occur.
+   --------------------------------------------------------------- */
+static int try_eval_constant(ASTNode *node, long *out)
 {
-    if (!name)
+    if (!node)
         return 0;
 
-    /* check semantic-known values first */
-    KnownVar *k = find_known_var(name);
-    if (k)
+    if (node->type == NODE_FACTOR)
     {
-        *out = k->temp;
-        return 1;
-    }
+        const char *lex = node->value;
+        if (!lex)
+            return 0;
 
-    /* check symbol table: find_symbol returns index or -1 */
-    int idx = find_symbol(name);
-    if (idx == -1)
-        return 0; /* undeclared */
-
-    /* Use datatype from symbol_table, and if symbol has initialized==1 and value_str non-empty,
-       and the value_str parses as integer, treat as compile-time known. */
-    SEM_TYPE t = datatype_to_semtype(symbol_table[idx].datatype);
-
-    if (symbol_table[idx].initialized && symbol_table[idx].value_str[0] != '\0')
-    {
         long v;
-        if (try_parse_int(symbol_table[idx].value_str, &v))
+        if (try_parse_int(lex, &v))
         {
-            *out = make_temp(t, 1, v, NULL);
+            *out = v;
             return 1;
         }
+
+        /* char literal like 'a' */
+        if (lex[0] == '\'' && lex[2] == '\'' && lex[3] == '\0')
+        {
+            *out = (unsigned char)lex[1];
+            return 1;
+        }
+
+        /* identifier: check semantic-known first, then symbol table */
+        if (isalpha((unsigned char)lex[0]) || lex[0] == '_')
+        {
+            KnownVar *k = find_known_var(lex);
+            if (k)
+            {
+                if (k->initialized && k->temp.is_constant)
+                {
+                    *out = k->temp.int_value;
+                    return 1;
+                }
+                return 0;
+            }
+            int idx = find_symbol(lex);
+            if (idx != -1 && symbol_table[idx].initialized && symbol_table[idx].value_str[0] != '\0')
+            {
+                long vv;
+                if (try_parse_int(symbol_table[idx].value_str, &vv))
+                {
+                    *out = vv;
+                    return 1;
+                }
+            }
+            return 0;
+        }
+        return 0;
     }
 
-    /* not compile-time-known, return non-constant temp (type from symbol) */
-    *out = make_temp(t, 0, 0, NULL);
-    return 1;
+    if (node->type == NODE_TERM)
+    {
+        long L, R;
+        if (!try_eval_constant(node->left, &L))
+            return 0;
+        if (!try_eval_constant(node->right, &R))
+            return 0;
+        const char *op = node->value ? node->value : "";
+        if (strcmp(op, "*") == 0)
+        {
+            *out = L * R;
+            return 1;
+        }
+        if (strcmp(op, "/") == 0)
+        {
+            if (R == 0)
+                return 0; /* avoid division by zero here; caller handles detection as error */
+            *out = L / R;
+            return 1;
+        }
+        return 0;
+    }
+
+    if (node->type == NODE_EXPRESSION)
+    {
+        long L, R;
+        if (!try_eval_constant(node->left, &L))
+            return 0;
+        if (!try_eval_constant(node->right, &R))
+            return 0;
+        const char *op = node->value ? node->value : "";
+        if (strcmp(op, "+") == 0)
+        {
+            *out = L + R;
+            return 1;
+        }
+        if (strcmp(op, "-") == 0)
+        {
+            *out = L - R;
+            return 1;
+        }
+        return 0;
+    }
+
+    if (node->type == NODE_UNARY_OP)
+    {
+        long v;
+        if (!try_eval_constant(node->left, &v))
+            return 0;
+        const char *op = node->value ? node->value : "";
+        if (strcmp(op, "+") == 0)
+        {
+            *out = v;
+            return 1;
+        }
+        if (strcmp(op, "-") == 0)
+        {
+            *out = -v;
+            return 1;
+        }
+        return 0;
+    }
+
+    return 0;
 }
 
-/* ----------------- Expression evaluation -----------------
-   The evaluator returns a SEM_TEMP describing:
-     - type (SEM_TYPE)
-     - is_constant (1 if compile-time-known)
-     - int_value (valid only if is_constant and numeric)
-   It also emits semantic errors (undeclared var, division by zero, assignment to undeclared).
-   --------------------------------------------------------- */
+/* ----------------- Expression evaluation ----------------- */
 
-static SEM_TEMP evaluate_expression(ASTNode *node); /* forward */
-
-/* evaluate factor (literals, identifiers, parenthesis handled by tree shape) */
+/* evaluate factor (literals, identifiers, parentheses handled by parser) */
 static SEM_TEMP eval_factor(ASTNode *node)
 {
     if (!node)
@@ -205,39 +312,73 @@ static SEM_TEMP eval_factor(ASTNode *node)
         if (!lex)
             return make_temp(SEM_TYPE_UNKNOWN, 0, 0, node);
 
-        /* integer literal */
         long v;
         if (try_parse_int(lex, &v))
-        {
             return make_temp(SEM_TYPE_INT, 1, v, node);
-        }
 
-        /* char literal like 'a' (simple detection) */
         if (lex[0] == '\'' && lex[1] != '\0' && lex[2] == '\'' && lex[3] == '\0')
         {
             long cv = (unsigned char)lex[1];
             return make_temp(SEM_TYPE_CHAR, 1, cv, node);
         }
 
-        /* identifier */
         if (isalpha((unsigned char)lex[0]) || lex[0] == '_')
         {
-            SEM_TEMP tv;
-            if (!lookup_variable_as_temp(lex, &tv))
+            /* check semantic-known entry first */
+            KnownVar *k = find_known_var(lex);
+            if (k)
+            {
+                /* mark used for later "declared but never used" detection */
+                k->used = 1;
+
+                /* If variable is not initialized, warn (but do not error) */
+                if (!k->initialized)
+                {
+                    sem_record_warning(node, "Use of uninitialized variable '%s'", lex);
+                }
+
+                SEM_TEMP tv = k->temp;
+                tv.node = node;
+                return tv;
+            }
+
+            /* fallback to symbol table */
+            int idx = find_symbol(lex);
+            if (idx == -1)
             {
                 sem_record_error(node, "Undeclared identifier '%s'", lex);
                 return make_temp(SEM_TYPE_UNKNOWN, 0, 0, node);
             }
-            /* attach node for better diagnostics if needed */
-            tv.node = node;
-            return tv;
+
+            /* mark usage for later warnings: create or update known var placeholder so we can track used status */
+            SEM_TEMP placeholder = make_temp(datatype_to_semtype(symbol_table[idx].datatype), 0, 0, node);
+            set_known_var(lex, placeholder, symbol_table[idx].initialized);
+            KnownVar *newk = find_known_var(lex);
+            if (newk)
+                newk->used = 1;
+
+            /* If symbol_table says not initialized, warn (but don't error) */
+            if (!symbol_table[idx].initialized)
+            {
+                sem_record_warning(node, "Use of uninitialized variable '%s'", lex);
+            }
+            else
+            {
+                /* if symbol table has a parseable initializer, return constant temp */
+                long vv;
+                if (symbol_table[idx].value_str[0] != '\0' && try_parse_int(symbol_table[idx].value_str, &vv))
+                {
+                    return make_temp(datatype_to_semtype(symbol_table[idx].datatype), 1, vv, node);
+                }
+            }
+
+            return make_temp(datatype_to_semtype(symbol_table[idx].datatype), 0, 0, node);
         }
 
-        /* fallback */
         return make_temp(SEM_TYPE_UNKNOWN, 0, 0, node);
     }
 
-    /* if not exactly NODE_FACTOR, evaluate as general expression (handles parentheses) */
+    /* parentheses / other shapes: delegate */
     return evaluate_expression(node);
 }
 
@@ -246,97 +387,81 @@ static SEM_TEMP eval_term(ASTNode *node)
 {
     if (!node)
         return make_temp(SEM_TYPE_UNKNOWN, 0, 0, node);
+    if (node->type != NODE_TERM)
+        return eval_factor(node);
 
-    /* If parser produced nested terms left-associatively, left may be TERM and right is FACTOR */
-    if (node->type == NODE_TERM)
+    SEM_TEMP L = eval_term(node->left);
+    SEM_TEMP R = eval_factor(node->right);
+    const char *op = node->value ? node->value : "";
+
+    if (strcmp(op, "/") == 0)
     {
-        SEM_TEMP L = eval_term(node->left);
-        SEM_TEMP R = eval_factor(node->right);
-
-        /* If type mismatches matter: we treat char as int for arithmetic */
-        if ((L.type != SEM_TYPE_INT && L.type != SEM_TYPE_CHAR && L.type != SEM_TYPE_UNKNOWN) ||
-            (R.type != SEM_TYPE_INT && R.type != SEM_TYPE_CHAR && R.type != SEM_TYPE_UNKNOWN))
+        /* if right is constant and zero -> error */
+        if (R.is_constant && R.int_value == 0)
         {
-            /* we don't support other types currently, but we won't crash */
+            sem_record_error(node, "Division by zero detected at compile time");
+            return make_temp(SEM_TYPE_UNKNOWN, 0, 0, node);
         }
 
-        const char *op = node->value ? node->value : "";
-
-        /* Division by zero detection: only if right is constant numeric and equals 0 */
-        if (strcmp(op, "/") == 0)
+        /* else, attempt to resolve subtree to constant and check */
+        long denom;
+        if (try_eval_constant(node->right, &denom))
         {
-            if (R.is_constant)
+            if (denom == 0)
             {
-                if (R.int_value == 0)
-                {
-                    sem_record_error(node, "Division by zero detected at compile time");
-                    return make_temp(SEM_TYPE_UNKNOWN, 0, 0, node);
-                }
-            }
-            /* otherwise cannot detect at compile-time */
-        }
-
-        /* Constant folding */
-        if (L.is_constant && R.is_constant)
-        {
-            if (strcmp(op, "*") == 0)
-            {
-                long val = L.int_value * R.int_value;
-                return make_temp(SEM_TYPE_INT, 1, val, node);
-            }
-            else if (strcmp(op, "/") == 0)
-            {
-                /* we already checked R.int_value != 0 above */
-                if (R.int_value == 0)
-                {
-                    return make_temp(SEM_TYPE_UNKNOWN, 0, 0, node);
-                }
-                long val = L.int_value / R.int_value;
-                return make_temp(SEM_TYPE_INT, 1, val, node);
+                sem_record_error(node, "Division by zero detected at compile time");
+                return make_temp(SEM_TYPE_UNKNOWN, 0, 0, node);
             }
         }
-
-        /* unknown or partially-known result => type int non-constant */
-        return make_temp(SEM_TYPE_INT, 0, 0, node);
     }
 
-    /* fallback */
-    return eval_factor(node);
+    /* constant folding */
+    if (L.is_constant && R.is_constant)
+    {
+        if (strcmp(op, "*") == 0)
+        {
+            long val = L.int_value * R.int_value;
+            return make_temp(SEM_TYPE_INT, 1, val, node);
+        }
+        else if (strcmp(op, "/") == 0)
+        {
+            if (R.int_value == 0)
+                return make_temp(SEM_TYPE_UNKNOWN, 0, 0, node);
+            long val = L.int_value / R.int_value;
+            return make_temp(SEM_TYPE_INT, 1, val, node);
+        }
+    }
+
+    return make_temp(SEM_TYPE_INT, 0, 0, node);
 }
 
-/* evaluate additive / expression nodes (handles + and -). Parser uses NODE_EXPRESSION for + and - */
+/* evaluate additive / expression nodes (handles + and -) */
 static SEM_TEMP eval_additive(ASTNode *node)
 {
     if (!node)
         return make_temp(SEM_TYPE_UNKNOWN, 0, 0, node);
+    if (node->type != NODE_EXPRESSION)
+        return eval_term(node);
 
-    if (node->type == NODE_EXPRESSION)
+    SEM_TEMP L = eval_additive(node->left);
+    SEM_TEMP R = eval_term(node->right);
+    const char *op = node->value ? node->value : "";
+
+    if (L.is_constant && R.is_constant)
     {
-        SEM_TEMP L = eval_additive(node->left);
-        SEM_TEMP R = eval_term(node->right);
-
-        const char *op = node->value ? node->value : "";
-
-        /* constant folding when possible */
-        if (L.is_constant && R.is_constant)
+        if (strcmp(op, "+") == 0)
         {
-            if (strcmp(op, "+") == 0)
-            {
-                long val = L.int_value + R.int_value;
-                return make_temp(SEM_TYPE_INT, 1, val, node);
-            }
-            else if (strcmp(op, "-") == 0)
-            {
-                long val = L.int_value - R.int_value;
-                return make_temp(SEM_TYPE_INT, 1, val, node);
-            }
+            long val = L.int_value + R.int_value;
+            return make_temp(SEM_TYPE_INT, 1, val, node);
         }
-
-        /* otherwise return non-const int result */
-        return make_temp(SEM_TYPE_INT, 0, 0, node);
+        else if (strcmp(op, "-") == 0)
+        {
+            long val = L.int_value - R.int_value;
+            return make_temp(SEM_TYPE_INT, 1, val, node);
+        }
     }
 
-    return eval_term(node);
+    return make_temp(SEM_TYPE_INT, 0, 0, node);
 }
 
 /* evaluate assignment nodes */
@@ -345,7 +470,6 @@ static SEM_TEMP eval_assignment(ASTNode *node)
     if (!node)
         return make_temp(SEM_TYPE_UNKNOWN, 0, 0, node);
 
-    /* node->left should be a NODE_FACTOR describing the identifier */
     ASTNode *lhs = node->left;
     ASTNode *rhs = node->right;
     if (!lhs || lhs->type != NODE_FACTOR)
@@ -360,18 +484,12 @@ static SEM_TEMP eval_assignment(ASTNode *node)
         return make_temp(SEM_TYPE_UNKNOWN, 0, 0, node);
     }
 
-    /* Evaluate RHS - parser may create nested assignment (right-recursive) */
     SEM_TEMP rhs_temp;
     if (rhs && rhs->type == NODE_ASSIGNMENT)
-    {
         rhs_temp = eval_assignment(rhs);
-    }
     else
-    {
         rhs_temp = evaluate_expression(rhs);
-    }
 
-    /* check var declared in symbol table */
     int idx = find_symbol(varname);
     if (idx == -1)
     {
@@ -379,31 +497,20 @@ static SEM_TEMP eval_assignment(ASTNode *node)
         return make_temp(SEM_TYPE_UNKNOWN, 0, 0, node);
     }
 
-    /* basic type compatibility check (we only support int/char) */
-    SEM_TYPE lhs_type = datatype_to_semtype(symbol_table[idx].datatype);
-    if (lhs_type == SEM_TYPE_UNKNOWN)
+    if (rhs_temp.is_constant)
     {
-        sem_record_error(node, "Unsupported LHS type for '%s'", varname);
+        SEM_TEMP store_temp = make_temp(datatype_to_semtype(symbol_table[idx].datatype), 1, rhs_temp.int_value, node);
+        set_known_var(varname, store_temp, 1);
     }
     else
     {
-        /* If RHS is constant, we may record compile-time known value in semantic store */
-        if (rhs_temp.is_constant)
-        {
-            SEM_TEMP store_temp = make_temp(lhs_type, 1, rhs_temp.int_value, node);
-            set_known_var(varname, store_temp);
-        }
-        else
-        {
-            /* RHS not constant: remove known_var entry (we are not allowed to change symbol_table) */
-            remove_known_var(varname);
-        }
-
-        /* optionally check assignment type mismatch: (here we are permissive: char <- int allowed) */
+        /* We don't know the value at compile-time; mark as declared but not semantically-initialized */
+        SEM_TEMP placeholder = make_temp(datatype_to_semtype(symbol_table[idx].datatype), 0, 0, node);
+        set_known_var(varname, placeholder, 0);
+        /* remove_known_var(varname);  // we keep placeholder so we can warn about unused later */
     }
 
-    /* Return temp representing the assigned value (if language allows assignment expressions) */
-    return make_temp(lhs_type, rhs_temp.is_constant, rhs_temp.int_value, node);
+    return make_temp(datatype_to_semtype(symbol_table[idx].datatype), rhs_temp.is_constant, rhs_temp.int_value, node);
 }
 
 /* Generic dispatcher */
@@ -424,44 +531,29 @@ static SEM_TEMP evaluate_expression(ASTNode *node)
         return eval_factor(node);
     case NODE_UNARY_OP:
     {
-        /* handle +, -, ++, -- (conservatively) */
-        ASTNode *operand = node->left;
-        SEM_TEMP t = evaluate_expression(operand);
+        SEM_TEMP t = evaluate_expression(node->left);
         if (t.is_constant)
         {
             if (strcmp(node->value, "+") == 0)
                 return t;
             if (strcmp(node->value, "-") == 0)
                 return make_temp(t.type, 1, -t.int_value, node);
-            /* ++/-- make value non-constant and may modify variable (we conservatively drop constness) */
-            if (strcmp(node->value, "++") == 0 || strcmp(node->value, "--") == 0)
-            {
-                return make_temp(t.type, 0, 0, node);
-            }
         }
-        else
-        {
-            return make_temp(t.type, 0, 0, node);
-        }
-        break;
+        return make_temp(t.type, 0, 0, node);
     }
     case NODE_POSTFIX_OP:
-    {
-        /* i++/i-- produce non-const */
         return make_temp(SEM_TYPE_INT, 0, 0, node);
-    }
     default:
-        /* For Node types not explicitly handled, evaluate children if present */
         if (node->left)
             evaluate_expression(node->left);
         if (node->right)
             evaluate_expression(node->right);
         return make_temp(SEM_TYPE_UNKNOWN, 0, 0, node);
     }
-    return make_temp(SEM_TYPE_UNKNOWN, 0, 0, node);
 }
 
-/* Walk statement list created by parser and analyze each statement */
+/* ----------------- Statement analysis ----------------- */
+
 static void analyze_statement_list(ASTNode *stmt_list)
 {
     for (ASTNode *cur = stmt_list; cur; cur = cur->right)
@@ -469,7 +561,6 @@ static void analyze_statement_list(ASTNode *stmt_list)
         if (!cur)
             break;
 
-        /* Our parser wraps statements in NODE_STATEMENT_LIST where left points to NODE_STATEMENT */
         if (cur->type == NODE_STATEMENT_LIST)
         {
             ASTNode *stmt_wrapper = cur->left;
@@ -483,54 +574,77 @@ static void analyze_statement_list(ASTNode *stmt_list)
 
                 if (stmt->type == NODE_DECLARATION)
                 {
-                    /* declaration: node->value holds datatype, left points to the linked list of declarators */
                     ASTNode *decls = stmt->left;
-                    for (ASTNode *d = decls; d; d = d->right)
+                    while (decls)
                     {
-                        if (!d)
-                            break;
-                        /* parser created decl nodes where d->value is identifier and d->left is initializer subtree */
-                        const char *idname = d->value;
-                        ASTNode *initializer = d->left;
+                        const char *idname = decls->value;
+                        ASTNode *initializer = decls->left;
                         if (initializer)
                         {
                             SEM_TEMP val = evaluate_expression(initializer);
                             if (val.is_constant)
                             {
-                                /* record compile-time known initializer in semantic-only store */
-                                SEM_TEMP store_temp = make_temp(datatype_to_semtype(stmt->value), 1, val.int_value, d);
-                                set_known_var(idname, store_temp);
+                                SEM_TEMP store_temp = make_temp(datatype_to_semtype(stmt->value), 1, val.int_value, decls);
+                                set_known_var(idname, store_temp, 1);
+                            }
+                            else
+                            {
+                                SEM_TEMP placeholder = make_temp(datatype_to_semtype(stmt->value), 0, 0, decls);
+                                set_known_var(idname, placeholder, 0);
                             }
                         }
+                        else
+                        {
+                            SEM_TEMP placeholder = make_temp(datatype_to_semtype(stmt->value), 0, 0, decls);
+                            set_known_var(idname, placeholder, 0);
+                        }
+
+                        decls = decls->right;
                     }
                 }
                 else
                 {
-                    /* assignment or expression */
                     evaluate_expression(stmt);
                 }
             }
             else
             {
-                /* unexpected shape: still try to evaluate children */
                 if (cur->left)
                     evaluate_expression(cur->left);
             }
         }
         else
         {
-            /* If parser produced bare statement nodes (defensive) */
-            if (cur->type == NODE_STATEMENT && cur->left)
-            {
+            if (cur->left)
                 evaluate_expression(cur->left);
-            }
-            else
+            if (cur->right)
+                evaluate_expression(cur->right);
+        }
+    }
+
+    /* After pass: produce warnings for declared-but-never-initialized-or-used variables */
+    for (int i = 0; i < symbol_count; ++i)
+    {
+        const char *name = symbol_table[i].name;
+        int sym_init = symbol_table[i].initialized;
+
+        KnownVar *k = find_known_var(name);
+        if (!k)
+        {
+            /* if symbol declared and not initialized in symbol table, warn */
+            if (!sym_init)
             {
-                /* fallback evaluate */
-                if (cur->left)
-                    evaluate_expression(cur->left);
-                if (cur->right)
-                    evaluate_expression(cur->right);
+                sem_record_warning(NULL, "Variable '%s' declared but never initialized or used", name);
+            }
+            continue;
+        }
+
+        if (!sym_init)
+        {
+            /* if we have known-var placeholder and it was never used and not initialized semantically -> warn */
+            if (!k->initialized && !k->used)
+            {
+                sem_record_warning(k->temp.node, "Variable '%s' declared but never initialized or used", name);
             }
         }
     }
@@ -560,24 +674,16 @@ int semantic_analyzer(void)
         return 1;
     }
 
-    /* the parser sets syntax_tree to NODE_START whose left is statement_list */
     ASTNode *stmts = syntax_tree->left;
     if (!stmts)
-    {
-        /* nothing to analyze */
         return 0;
-    }
 
     analyze_statement_list(stmts);
 
     if (sem_errors == 0)
-    {
         printf("Semantic Analysis: no errors found.\n");
-    }
     else
-    {
         printf("Semantic Analysis: %d error(s) detected.\n", sem_errors);
-    }
 
     return sem_errors;
 }
