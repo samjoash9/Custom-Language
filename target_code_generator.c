@@ -131,6 +131,10 @@ void generate_data_section()
 
     for (int i = 0; i < symbol_count; i++)
     {
+        if (is_tac_temporary(symbol_table[i].name))
+        {
+            continue;
+        }
         add_assembly_line("%s: .word64 0\n", symbol_table[i].name);
         add_to_data_storage(symbol_table[i].name);
     }

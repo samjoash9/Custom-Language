@@ -66,6 +66,7 @@
     "target_code_generator.h": "c",
     "stdio.h": "c",
     "syntax_analyzer.h": "c",
-    "ctype.h": "c"
+    "ctype.h": "c",
+    "stdlib.h": "c"
   }
 }
