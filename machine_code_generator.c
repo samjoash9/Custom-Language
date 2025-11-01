@@ -5,16 +5,15 @@ int start_code_counter = 0;
 const char *R_TYPE[R_TYPE_COUNT] = {"daddu", "dsub", "dmult", "ddiv", "mflo"};
 const char *I_TYPE[I_TYPE_COUNT] = {"daddiu", "ld", "sd"};
 
-
-typedef struct {
+typedef struct
+{
     char label[32];
     int address;
 } DataSymbol;
 
 DataSymbol data_symbols[100];
 int data_symbol_count = 0;
-int current_data_address = 0xFFF8; // base address for .data section 
-
+int current_data_address = 0xFFF8; // base address for .data section
 
 void trim(char *str)
 {
@@ -29,17 +28,17 @@ void trim(char *str)
     *(end + 1) = 0;
 }
 
-
 void remove_data_and_code_section()
 {
     int i = 0;
     while (i < assembly_code_count)
-    {   
+    {
 
         char *line = assembly_code[i].assembly;
 
         char label[32];
-        if (sscanf(line, "%31[^:]:", label) == 1) {
+        if (sscanf(line, "%31[^:]:", label) == 1)
+        {
             trim(label);
             strcpy(data_symbols[data_symbol_count].label, label);
             data_symbols[data_symbol_count].address = current_data_address;
@@ -168,7 +167,8 @@ void convert_to_machine_code() {
             if (tok)
                 rt = parse_register(tok);
         }
-        else{ // I-type
+        else
+        { // I-type
             tok = strtok(operands, ", ");
             if (tok)
                 rt = parse_register(tok);
@@ -187,19 +187,24 @@ void convert_to_machine_code() {
 
                     // --- Check if tok is a label ---
                     int found = 0;
-                    for (int d = 0; d < data_symbol_count; d++) {
-                        if (strcmp(tok, data_symbols[d].label) == 0) {
+                    for (int d = 0; d < data_symbol_count; d++)
+                    {
+                        if (strcmp(tok, data_symbols[d].label) == 0)
+                        {
                             imm = data_symbols[d].address;
                             found = 1;
                             break;
                         }
                     }
-                    if (!found) imm = atoi(tok); // fallback to numeric
+                    if (!found)
+                        imm = atoi(tok); // fallback to numeric
                 }
-                else {
+                else
+                {
                     rs = parse_register(tok);
                     tok = strtok(NULL, ", ");
-                    if (tok) imm = atoi(tok);
+                    if (tok)
+                        imm = atoi(tok);
                 }
             }
         }
@@ -219,16 +224,19 @@ void convert_to_machine_code() {
         else
             snprintf(full_bin, sizeof(full_bin), "%s %s %s %s", bin_opcode, bin_rs, bin_rt, bin_imm);
 
-
         // --- Convert Binary String to Hexadecimal ---
         unsigned int full_bin_value = 0;
-        for (int j = 0; j < strlen(full_bin); j++) {
-            if (full_bin[j] == '1') {
+        for (int j = 0; j < strlen(full_bin); j++)
+        {
+            if (full_bin[j] == '1')
+            {
                 full_bin_value = (full_bin_value << 1) | 1;
-            } else if (full_bin[j] == '0') {
+            }
+            else if (full_bin[j] == '0')
+            {
                 full_bin_value <<= 1;
             }
-        }   
+        }
 
         // --- Output Binary + Hex ---
         printf("%-20s\t->\t%s\t(0x%08X)\n", assembly_code[i].assembly, full_bin, full_bin_value);
@@ -236,7 +244,7 @@ void convert_to_machine_code() {
 }
 
 void generate_machine_code()
-{   
+{
     remove_data_and_code_section();
     printf("===== MACHINE CODE =====\n");
     convert_to_machine_code();

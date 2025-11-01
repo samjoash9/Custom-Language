@@ -6,7 +6,7 @@
 
 #include "symbol_table.h"
 
-#define MAX_TOKENS 1024
+#define MAX_TOKENS 2048
 #define MAX_BUFFER_LEN 256
 #define MAX_VALUE_LENGTH 256
 

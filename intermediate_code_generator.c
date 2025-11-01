@@ -87,19 +87,20 @@ static char *generateExpression(ASTNode *node)
         char *var = generateExpression(node->left); // get current value
         char *tmp = newTemp();                      // temp for expression
 
-        if (strcmp(node->value, "++") == 0) {
-            emit(tmp, var, "=", NULL);  // tmp = current value
-            emit(var, var, "+", "1");   // increment after
-        } else if (strcmp(node->value, "--") == 0) {
-            emit(tmp, var, "=", NULL);  // tmp = current value
-            emit(var, var, "-", "1");   // decrement after
+        if (strcmp(node->value, "++") == 0)
+        {
+            emit(tmp, var, "=", NULL); // tmp = current value
+            emit(var, var, "+", "1");  // increment after
+        }
+        else if (strcmp(node->value, "--") == 0)
+        {
+            emit(tmp, var, "=", NULL); // tmp = current value
+            emit(var, var, "-", "1");  // decrement after
         }
 
         free(var);
-        return tmp;  // use original value in expression
+        return tmp; // use original value in expression
     }
-
-
 
     // Unary operators (++ / -- / + / -)
     if (node->type == NODE_UNARY_OP && node->left)
@@ -215,7 +216,8 @@ static void removeRedundantTemporaries()
         TACInstruction *cur = &optimizedCode[i];
         TACInstruction *next = &optimizedCode[i + 1];
 
-        if (cur->result[0] == 't' && strcmp(next->arg1, cur->result) == 0 && strcmp(next->op, "=") == 0){
+        if (cur->result[0] == 't' && strcmp(next->arg1, cur->result) == 0 && strcmp(next->op, "=") == 0)
+        {
             snprintf(next->arg1, sizeof(next->arg1), "%s", cur->arg1);
             snprintf(next->op, sizeof(next->op), "%s", cur->op);
             snprintf(next->arg2, sizeof(next->arg2), "%s", cur->arg2);

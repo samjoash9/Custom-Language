@@ -65,6 +65,8 @@
     "semantic_analyzer.h": "c",
     "target_code_generator.h": "c",
     "stdio.h": "c",
-    "syntax_analyzer.h": "c"
+    "syntax_analyzer.h": "c",
+    "ctype.h": "c",
+    "stdlib.h": "c"
   }
 }

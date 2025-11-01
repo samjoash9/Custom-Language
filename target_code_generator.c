@@ -131,6 +131,10 @@ void generate_data_section()
 
     for (int i = 0; i < symbol_count; i++)
     {
+        if (is_tac_temporary(symbol_table[i].name))
+        {
+            continue;
+        }
         add_assembly_line("%s: .word64 0\n", symbol_table[i].name);
         add_to_data_storage(symbol_table[i].name);
     }
@@ -173,9 +177,7 @@ void perform_operation(char *result, char *arg1, char *op, char *arg2, Register 
 {
     // determine operation
     if (strcmp(op, "+") == 0)
-    {
         add_assembly_line("daddu %s, %s, %s\n", reg3->name, reg1->name, reg2->name);
-    }
     else if (strcmp(op, "-") == 0)
     {
         add_assembly_line("dsub %s, %s, %s\n", reg3->name, reg1->name, reg2->name);

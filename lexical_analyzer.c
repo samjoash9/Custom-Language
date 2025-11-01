@@ -159,7 +159,9 @@ void display_tokens()
 // Skip single-line comment
 void skip_single_line_comment(const char *src, int *i)
 {
+    // skip "//"
     *i += 2;
+
     while (src[*i] != '\0' && src[*i] != '\n')
         (*i)++;
 }
@@ -193,6 +195,8 @@ int lexer(const char *src)
     }
 
     int len = (int)strlen(src);
+
+    // temporary buffer
     char temp_token[MAX_BUFFER_LEN];
     int t_iter = 0;
 
@@ -242,6 +246,17 @@ int lexer(const char *src)
         }
 
         // Integer literal
+        // Checks if the current character is a plus or minus sign.
+        // Ensures there is a next character, so we don’t go out of bounds.
+        // Ensures the character after + or - is a digit.
+        // Checks the context before the sign.
+
+        /*
+        i == 0 → at the start of the line, so it’s a number like -5
+        src[i - 1] == '(' → inside parentheses like (-3)
+        src[i - 1] == '=' → after an assignment like x = -10
+        isspace(...) → after a space like -4
+        */
         if (isdigit((unsigned char)c) ||
             ((c == '+' || c == '-') &&
              i + 1 < len && isdigit((unsigned char)src[i + 1]) &&
