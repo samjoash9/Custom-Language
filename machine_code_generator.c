@@ -116,6 +116,7 @@ int get_funct(const char *mnemonic)
     return 0;
 }
 
+
 void convert_to_machine_code() {
     
     char mnemonic[32], operands[128];
@@ -143,10 +144,18 @@ void convert_to_machine_code() {
         char *tok;
 
         // --- Tokenize Operands ---
-        if (strcmp(mnemonic, "mflo") == 0){ 
+        if (strcmp(mnemonic, "mflo") == 0){ //SPECIAL R-type (Release 5)
             tok = strtok(operands, ", ");
             if (tok)
                 rd = parse_register(tok);
+        }
+        else if (strcmp(mnemonic, "dmult") == 0 || strcmp(mnemonic, "ddiv") == 0){ //Special R-type (Release 5)
+            tok = strtok(operands, ", ");
+            if (tok)
+                rs = parse_register(tok);
+            tok = strtok(NULL, ", ");
+            if (tok)
+                rt = parse_register(tok);
         }
         else if (opcode == 0x00){ // R-type
             tok = strtok(operands, ", ");
