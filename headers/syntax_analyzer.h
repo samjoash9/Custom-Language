@@ -2,6 +2,10 @@
 #define SYNTAX_ANALYZER_H
 
 #define MAX_VALUE_LEN 256
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <ctype.h>
 
 #include "lexical_analyzer.h"
 #include "symbol_table.h"
@@ -47,9 +51,9 @@ ASTNode *parse_statement_list();
 ASTNode *parse_statement();
 ASTNode *parse_declaration();
 ASTNode *parse_assignment();
-ASTNode *parse_additive(); // handles + / -
+ASTNode *parse_additive(); 
 ASTNode *parse_term();
 ASTNode *parse_factor();
-ASTNode *parse_expression(); // entry: assignment
+ASTNode *parse_expression(); 
 
 #endif

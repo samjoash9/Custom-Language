@@ -3,7 +3,6 @@
 #include <string.h>
 #include "headers/lexical_analyzer.h"
 
-// Global token array and count
 TOKEN tokens[MAX_TOKENS];
 int token_count = 0;
 int error_found = 0;
@@ -99,6 +98,7 @@ void get_token_as_value(const char *source, char *target, int *s_iterator, int *
 void reset_tokens(int *iterator, char *temp_token)
 {
     *iterator = 0;
+
     if (temp_token)
         temp_token[0] = '\0';
 }
@@ -202,6 +202,7 @@ int lexer(const char *src)
 
     for (int i = 0; i < len; i++)
     {
+        // set current char
         char c = src[i];
 
         // Ignore carriage returns
@@ -246,21 +247,26 @@ int lexer(const char *src)
         }
 
         // Integer literal
-        // Checks if the current character is a plus or minus sign.
-        // Ensures there is a next character, so we don’t go out of bounds.
-        // Ensures the character after + or - is a digit.
-        // Checks the context before the sign.
+        // Checks if the current character is a plus or minus sign
+        // Ensures there is a next character, so we don’t go out of bounds
+        // the character after + or - should be  a digit
+        // check the context before the sign
 
         /*
         i == 0 → at the start of the line, so it’s a number like -5
+        isdigit((unsigned char)src[i + 1]) - So we don’t treat -x as a negative number (that’s an operator, not a literal).
         src[i - 1] == '(' → inside parentheses like (-3)
         src[i - 1] == '=' → after an assignment like x = -10
         isspace(...) → after a space like -4
         */
+
+        // casting: <ctype.h> functions (isdigit, isspace, etc.) are undefined for negative char values.
+
         if (isdigit((unsigned char)c) ||
             ((c == '+' || c == '-') &&
              i + 1 < len && isdigit((unsigned char)src[i + 1]) &&
-             (i == 0 || src[i - 1] == '(' || src[i - 1] == '=' || isspace((unsigned char)src[i - 1]))))
+             (i == 0 || src[i - 1] == '(' || src[i - 1] == '=' ||
+              isspace((unsigned char)src[i - 1]))))
         {
             get_token_as_value(src, temp_token, &i, &t_iter);
             add_to_tokens(temp_token, TOK_INT_LITERAL);
@@ -271,8 +277,9 @@ int lexer(const char *src)
         // Character literal
         if (c == '\'')
         {
-            int j = i + 1;
-            char literal[5] = {0}; // enough to hold things like: '\n' + null terminator
+            int j = i + 1; // temp iterator for source code
+
+            char literal[5] = {0}; // buffer
             int idx = 0;
 
             // opening quote
@@ -280,7 +287,8 @@ int lexer(const char *src)
 
             if (j < len)
             {
-                if (src[j] == '\\' && j + 1 < len) // escaped character (e.g. '\n', '\0', '\'')
+                // check if escaped character (e.g. '\n', '\0', '\'')
+                if (src[j] == '\\' && j + 1 < len)
                 {
                     literal[idx++] = '\\';
                     literal[idx++] = src[j + 1];
@@ -326,28 +334,36 @@ int lexer(const char *src)
             continue;
         }
 
-        // Operators (single or compound)
-        if (is_operator_char(c))
+        // Operators (arithmetic and assignment only)
+        if (c == '+' || c == '-' || c == '*' || c == '/' || c == '=')
         {
             char next = (i + 1 < len) ? src[i + 1] : '\0';
-            // compound: ++ -- += -= *= /= == != <= >=
-            if ((c == '+' && next == '+') || (c == '-' && next == '-') ||
-                (next == '=' && (c == '+' || c == '-' || c == '*' || c == '/' || c == '=' || c == '!' || c == '<' || c == '>')) ||
-                (c == '=' && next == '=') || (c == '!' && next == '=') ||
-                (c == '<' && next == '=') || (c == '>' && next == '='))
+
+            // Compound arithmetic operators
+            if ((c == '+' && next == '+') ||                                                 // ++
+                (c == '-' && next == '-') ||                                                 // --
+                (next == '=' && (c == '+' || c == '-' || c == '*' || c == '/' || c == '='))) // +=, -=, *=, /=, ==
             {
-                temp_token[0] = c;
-                temp_token[1] = next;
-                temp_token[2] = '\0';
-                add_to_tokens(temp_token, TOK_OPERATOR);
-                i++; // consume compound char
+                // Skip '==' to avoid comparison operators
+                if (c == '=' && next == '=')
+                {
+                    // Do nothing — let another rule handle it if ever added later
+                }
+                else
+                {
+                    temp_token[0] = c;
+                    temp_token[1] = next;
+                    temp_token[2] = '\0';
+                    add_to_tokens(temp_token, TOK_OPERATOR);
+                    i++; // consume compound character
+                    continue;
+                }
             }
-            else
-            {
-                temp_token[0] = c;
-                temp_token[1] = '\0';
-                add_to_tokens(temp_token, TOK_OPERATOR);
-            }
+
+            // Single arithmetic or assignment operator
+            temp_token[0] = c;
+            temp_token[1] = '\0';
+            add_to_tokens(temp_token, TOK_OPERATOR);
             continue;
         }
 

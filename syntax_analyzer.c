@@ -1,9 +1,3 @@
-// syntax_analyzer.c
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <ctype.h>
-
 #include "headers/syntax_analyzer.h"
 
 // === GLOBALS FROM LEXICAL ANALYZER ===
@@ -12,20 +6,25 @@ int syntax_error = 0;
 ASTNode *syntax_tree = NULL;
 
 // === UTILITY FUNCTIONS ===
+// Looks at the current token without consuming it.
 TOKEN *peek()
 {
     if (current_token < token_count)
         return &tokens[current_token];
+
     return NULL;
 }
 
+// Moves to the next token (consumes one).
 TOKEN *consume()
 {
     if (current_token < token_count)
         return &tokens[current_token++];
+
     return NULL;
 }
 
+// If current token matches the given string, consume it and return 1; otherwise 0.
 int match(const char *lexeme)
 {
     TOKEN *tok = peek();
@@ -34,14 +33,17 @@ int match(const char *lexeme)
         consume();
         return 1;
     }
+
     return 0;
 }
 
+// Prints a syntax error and sets syntax_error = 1.
 void error(const char *message)
 {
     printf("Syntax Error: %s (near token '%s')\n",
            message,
            current_token < token_count ? tokens[current_token].lexeme : "EOF");
+
     syntax_error = 1;
 }
 
@@ -49,20 +51,24 @@ void error(const char *message)
 ASTNode *create_node(NodeType type, const char *value, ASTNode *left, ASTNode *right)
 {
     ASTNode *node = malloc(sizeof(ASTNode));
+
     if (!node)
     {
         fprintf(stderr, "Out of memory creating AST node\n");
         exit(1);
     }
+
     node->type = type;
     node->left = left;
     node->right = right;
     node->value = value ? strdup(value) : strdup("");
+
     if (!node->value)
     {
         fprintf(stderr, "Out of memory duplicating node value\n");
         exit(1);
     }
+
     return node;
 }
 
