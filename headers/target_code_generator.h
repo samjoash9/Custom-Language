@@ -13,7 +13,7 @@
 #define MAX_REGISTER_NAME_LENGTH 10
 #define MAX_REGISTERS 30
 #define MAX_TAC 256
-#define MAX_ASSEMBLY_CODE 2048
+#define MAX_ASSEMBLY_CODE 4096
 #define MAX_ASSEMBLY_LINE 128
 
 // 2D array for storage of Data section
