@@ -175,14 +175,47 @@ ASTNode *parse_statement()
 // === DECLARATION ===
 /*
 DECLARATION             → DATATYPE INIT_DECLARATOR_LIST
-INIT_DECLARATOR_LIST    → INIT_DECLARATOR  | INIT_DECLARATOR ',' INIT_DECLARATOR_LIST
-INIT_DECLARATOR         → IDENTIFIER  | IDENTIFIER '=' EXPRESSION
+INIT_DECLARATOR_LIST    → INIT_DECLARATOR | INIT_DECLARATOR ',' INIT_DECLARATOR_LIST
+INIT_DECLARATOR         → DECLARATOR | DECLARATOR '=' EXPRESSION
+DECLARATOR              → IDENTIFIER | '(' DECLARATOR ')'
 DATATYPE                → 'char' | 'int'
 */
+
+// Recursive helper for DECLARATOR → IDENTIFIER | '(' DECLARATOR ')'
+char *parse_declarator()
+{
+    TOKEN *tok = peek();
+    if (!tok)
+    {
+        error("Unexpected end of declarator");
+        return NULL;
+    }
+
+    // Case 1: IDENTIFIER
+    if (tok->type == TOK_IDENTIFIER)
+    {
+        char *name = strdup(tok->lexeme);
+        consume();
+        return name;
+    }
+
+    // Case 2: '(' DECLARATOR ')'
+    if (tok->type == TOK_PARENTHESIS && strcmp(tok->lexeme, "(") == 0)
+    {
+        consume();                        // consume '('
+        char *inner = parse_declarator(); // recursive call
+        if (!match(")"))
+            error("Missing ')' in declarator");
+        return inner;
+    }
+
+    error("Expected identifier or '(' in declarator");
+    return NULL;
+}
+
 ASTNode *parse_declaration()
 {
     // DECLARATION → DATATYPE INIT_DECLARATOR_LIST
-    //    DATATYPE → 'char' | 'int'
     TOKEN *datatype = consume();
 
     ASTNode *decl_list = NULL;
@@ -190,13 +223,17 @@ ASTNode *parse_declaration()
 
     while (1)
     {
-        TOKEN *id = peek();
-        if (!id || id->type != TOK_IDENTIFIER)
+        TOKEN *tok = peek();
+        if (!tok)
         {
-            error("Expected identifier in declaration");
+            error("Unexpected end of declaration");
             break;
         }
-        consume(); // consume identifier
+
+        // Recursive declarator parsing (handles (a), ((a)), (((a))), etc.)
+        char *identifier_name = parse_declarator();
+        if (!identifier_name)
+            break;
 
         ASTNode *rhs_node = NULL;
         int initialized = 0;
@@ -204,19 +241,21 @@ ASTNode *parse_declaration()
 
         if (match("="))
         {
-            // initializer may be an assignment expression
             rhs_node = parse_expression();
             initialized = 1;
         }
 
-        add_symbol(id->lexeme, datatype->lexeme, literal_value, initialized);
+        add_symbol(identifier_name, datatype->lexeme, literal_value, initialized);
 
-        ASTNode *decl_node = create_node(NODE_DECLARATION, id->lexeme, rhs_node, NULL);
+        ASTNode *decl_node = create_node(NODE_DECLARATION, identifier_name, rhs_node, NULL);
         if (!decl_list)
             decl_list = decl_node;
         else
             last->right = decl_node;
+
         last = decl_node;
+
+        free(identifier_name);
 
         if (!match(","))
             break;
