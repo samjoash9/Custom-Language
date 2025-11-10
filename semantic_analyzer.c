@@ -33,10 +33,13 @@ static void sem_record_warning(ASTNode *node, const char *fmt, ...)
     fprintf(stderr, "Semantic Warning: ");
     va_list ap;
     va_start(ap, fmt);
+
     vfprintf(stderr, fmt, ap);
     va_end(ap);
+
     if (node && node->value)
         fprintf(stderr, " (node: '%s')", node->value);
+
     fprintf(stderr, "\n");
 }
 
@@ -137,7 +140,13 @@ static void mark_known_var_used(const char *name)
         k->used = 1;
 }
 
-/* convert symbol_table datatype to SEM_TYPE */
+/* convert symbol_table datatype to SEM_TYPE
+EXAMPLE:
+
+int = SEM_TYPE_INT
+char = SEM_TYPE_CHAR
+otherwise = SEM_TYPE_UNKNOWN
+*/
 static SEM_TYPE datatype_to_semtype(const char *dt)
 {
     if (!dt)
@@ -508,7 +517,7 @@ static SEM_TEMP eval_assignment(ASTNode *node)
     return make_temp(datatype_to_semtype(symbol_table[idx].datatype), rhs_temp.is_constant, rhs_temp.int_value, node);
 }
 
-/* Generic dispatcher */
+// calls the appropriate evaluation function based on AST node type.
 static SEM_TEMP evaluate_expression(ASTNode *node)
 {
     if (!node)
@@ -517,16 +526,25 @@ static SEM_TEMP evaluate_expression(ASTNode *node)
     switch (node->type)
     {
     case NODE_ASSIGNMENT:
+        /*
+        Handles assignment statements like:
+        a = 5 + 3;
+        b = a * 2;
+        */
         return eval_assignment(node);
     case NODE_EXPRESSION:
+        // handles addition and subtraction
         return eval_additive(node);
     case NODE_TERM:
+        // handles multiplication, division
         return eval_term(node);
     case NODE_FACTOR:
+        // parenthesis, etc
         return eval_factor(node);
     case NODE_UNARY_OP:
     {
         SEM_TEMP t = evaluate_expression(node->left);
+
         if (t.is_constant)
         {
             if (strcmp(node->value, "+") == 0)
@@ -557,7 +575,6 @@ static void analyze_statement_list(ASTNode *stmt_list)
         if (!cur)
             break;
 
-        // check if it is nested, then dive
         if (cur->type == NODE_STATEMENT_LIST)
         {
             ASTNode *stmt_wrapper = cur->left;
@@ -568,62 +585,62 @@ static void analyze_statement_list(ASTNode *stmt_list)
             if (stmt_wrapper->type == NODE_STATEMENT && stmt_wrapper->left)
             {
                 ASTNode *stmt = stmt_wrapper->left;
+
                 if (!stmt)
                     continue;
 
-                // handle statement declaration
+                // Handle Declaration
                 if (stmt->type == NODE_DECLARATION)
                 {
                     ASTNode *decls = stmt->left;
 
+                    // iterate through declarations
                     while (decls)
                     {
                         const char *idname = decls->value;
                         ASTNode *initializer = decls->left;
+
+                        // if it has '= expression'
+                        // example: int a = 1;
                         if (initializer)
                         {
                             SEM_TEMP val = evaluate_expression(initializer);
+
                             if (val.is_constant)
                             {
                                 SEM_TEMP store_temp = make_temp(datatype_to_semtype(stmt->value), 1, val.int_value, decls);
-                                set_known_var(idname, store_temp, 1);
+                                set_known_var(idname, store_temp, 1); // mark as initialized
                             }
                             else
                             {
                                 SEM_TEMP placeholder = make_temp(datatype_to_semtype(stmt->value), 0, 0, decls);
+                                // not yet fully initialized since we do not know the value yet of the expression
+                                // e.g. int a = b + c;
                                 set_known_var(idname, placeholder, 0);
                             }
                         }
+                        // cases like (int a; int b;)
                         else
                         {
                             SEM_TEMP placeholder = make_temp(datatype_to_semtype(stmt->value), 0, 0, decls);
-                            set_known_var(idname, placeholder, 0);
+                            set_known_var(idname, placeholder, 0); // mark as uninitialized
                         }
 
+                        // go to the next declaration (comma separated declarations)
                         decls = decls->right;
                     }
                 }
+                // otherwise, it is an expression
                 else
                 {
                     evaluate_expression(stmt);
                 }
             }
-            else
-            {
-                if (cur->left)
-                    evaluate_expression(cur->left);
-            }
-        }
-        else
-        {
-            if (cur->left)
-                evaluate_expression(cur->left);
-            if (cur->right)
-                evaluate_expression(cur->right);
         }
     }
 
-    /* After pass: produce warnings for declared-but-never-initialized-or-used variables */
+    // After that, produce warnings for declared-but-never-initialized-or-used variables
+    // iterate to symbol table
     for (int i = 0; i < symbol_count; ++i)
     {
         const char *name = symbol_table[i].name;
@@ -642,11 +659,9 @@ static void analyze_statement_list(ASTNode *stmt_list)
 
         if (!sym_init)
         {
-            /* if we have known-var placeholder and it was never used and not initialized semantically -> warn */
+            // if we have known-var placeholder and it was never used and not initialized semantically
             if (!k->initialized && !k->used)
-            {
                 sem_record_warning(k->temp.node, "Variable '%s' declared but never initialized or used", name);
-            }
         }
     }
 }

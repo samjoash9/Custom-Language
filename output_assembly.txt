@@ -2,8 +2,22 @@
 a: .word64 0
 
 .code
-; a = 1
+; temp0 = 1 + 2
 daddiu r1, r0, 1
-sd r1, a(r0)
+daddiu r2, r0, 2
+daddu r3, r1, r2
 
-; a = 'a'
+; temp1 = 3 * 4
+daddiu r1, r0, 3
+daddiu r2, r0, 4
+dmult r1, r2
+mflo r4
+
+; temp2 = temp1 / 2
+daddiu r1, r0, 2
+ddiv r4, r1
+mflo r2
+
+; a = temp0 - temp2
+dsub r1, r3, r2
+sd r1, a(r0)

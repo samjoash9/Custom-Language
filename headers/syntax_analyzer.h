@@ -51,9 +51,9 @@ ASTNode *parse_statement_list();
 ASTNode *parse_statement();
 ASTNode *parse_declaration();
 ASTNode *parse_assignment();
-ASTNode *parse_additive(); 
+ASTNode *parse_additive();
 ASTNode *parse_term();
 ASTNode *parse_factor();
-ASTNode *parse_expression(); 
+ASTNode *parse_expression();
 
 #endif
