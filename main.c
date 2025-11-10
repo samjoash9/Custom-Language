@@ -76,7 +76,7 @@ int main()
     generate_machine_code();
 
     // === SYMBOL TABLE ===
-    printf("\n\n===== SYMBOL TABLE (AFTER ANALYSIS) =====\n");
+    printf("\n===== SYMBOL TABLE (AFTER ANALYSIS) =====\n");
     display_symbol_table();
 
     // === CLEANUP ===

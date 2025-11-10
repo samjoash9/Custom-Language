@@ -592,7 +592,7 @@ void output_assembly_file()
 
     fclose(file);
 
-    printf("\nAssembly code successfully written to output_assembly.txt\n");
+    printf(">>Assembly code successfully written to output_assembly.txt\n\n");
 }
 
 void generate_target_code()
