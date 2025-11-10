@@ -3,14 +3,14 @@ S                       → STATEMENT_LIST
 
 /* B. Statements */
 STATEMENT_LIST          → STATEMENT STATEMENT_LIST | ε
-STATEMENT               → DECLARATION '!' | ASSIGNMENT '!' | EXPRESSION '!'
+STATEMENT               → DECLARATION ';' | ASSIGNMENT ';' | EXPRESSION ';'
 
 /* C. Declarations */
 DECLARATION             → DATATYPE INIT_DECLARATOR_LIST
 INIT_DECLARATOR_LIST    → INIT_DECLARATOR | INIT_DECLARATOR ',' INIT_DECLARATOR_LIST
 INIT_DECLARATOR         → DECLARATOR | DECLARATOR '=' EXPRESSION
 DECLARATOR              → IDENTIFIER | '(' DECLARATOR ')'
-DATATYPE                → 'CHAROT' | 'ENTEGER'
+DATATYPE                → 'char' | 'int'
 
 /* D. Assignment
 ASSIGNMENT              → ASSIGN_EXPR
