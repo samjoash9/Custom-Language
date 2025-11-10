@@ -532,7 +532,6 @@ static SEM_TEMP eval_additive(ASTNode *node)
 }
 
 /* evaluate assignment nodes */
-/* evaluate assignment nodes */
 static SEM_TEMP eval_assignment(ASTNode *node)
 {
     if (!node)
@@ -636,7 +635,6 @@ static SEM_TEMP evaluate_expression(ASTNode *node)
     }
 }
 
-/* ----------------- Statement analysis ----------------- */
 // Walk through the AST, find statements, handle declarations, evaluate expressions, and warn about unused variables.
 static void analyze_statement_list(ASTNode *stmt_list)
 {
@@ -683,9 +681,11 @@ static void analyze_statement_list(ASTNode *stmt_list)
                                 set_known_var(idname, store_temp, 1); // mark as initialized
 
                                 // Propagate constant initializer into the symbol table
-                                int sidx = find_symbol(idname);
+                                int sidx = find_symbol(idname); // find index
+
                                 if (sidx != -1 && symbol_table[sidx].value_str)
                                 {
+                                    // write to symbol table (value_str) with its ascii value
                                     snprintf(symbol_table[sidx].value_str, sizeof(symbol_table[sidx].value_str), "%ld", val.int_value);
                                     symbol_table[sidx].initialized = 1;
                                 }
