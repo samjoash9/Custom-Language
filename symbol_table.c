@@ -11,9 +11,8 @@ int add_symbol(const char *name, const char *datatype, const char *value_str, in
     {
         if (strcmp(symbol_table[i].name, name) == 0)
         {
-            printf("Semantic Error: Redeclaration of variable '%s' (previously declared as '%s')\n",
-                   name, symbol_table[i].datatype);
-            return 0;
+            printf("Semantic Error: Redeclaration of variable '%s' (previously declared as '%s')\n", name, symbol_table[i].datatype);
+            exit(0);
         }
     }
 

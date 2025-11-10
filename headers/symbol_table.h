@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h>
+#include <stdlib.h>
 
 #define MAX_SYMBOLS 1024
 

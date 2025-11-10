@@ -1,5 +1,15 @@
 .data
+x: .word64 0
+y: .word64 0
+z: .word64 0
 a: .word64 0
+b: .word64 0
+c: .word64 0
+n: .word64 0
+r1: .word64 0
+r2: .word64 0
+r3: .word64 0
+result: .word64 0
 
 .code
 ; temp0 = 3 * 4
@@ -8,16 +18,236 @@ daddiu r2, r0, 4
 dmult r1, r2
 mflo r3
 
-; temp1 = temp0 / 2
+; temp1 = 2 + temp0
 daddiu r1, r0, 2
+daddu r2, r1, r3
+
+; temp2 = 8 / 2
+daddiu r1, r0, 8
+daddiu r3, r0, 2
+ddiv r1, r3
+mflo r4
+
+; x = temp1 - temp2
+dsub r1, r2, r4
+sd r1, x(r0)
+
+; temp4 = 2 + 3
+daddiu r1, r0, 2
+daddiu r2, r0, 3
+daddu r3, r1, r2
+
+; temp5 = 4 - 8
+daddiu r1, r0, 4
+daddiu r2, r0, 8
+dsub r4, r1, r2
+
+; temp6 = temp4 * temp5
+dmult r3, r4
+mflo r1
+
+; y = temp6 / 2
+daddiu r2, r0, 2
+ddiv r1, r2
+mflo r3
+sd r3, y(r0)
+
+; temp8 = 10 - 3
+daddiu r1, r0, 10
+daddiu r2, r0, 3
+dsub r3, r1, r2
+
+; temp9 = 2 * 5
+daddiu r1, r0, 2
+daddiu r2, r0, 5
+dmult r1, r2
+mflo r4
+
+; temp10 = temp9 / 2
+daddiu r1, r0, 2
+ddiv r4, r1
+mflo r2
+
+; z = temp8 + temp10
+daddu r1, r3, r2
+sd r1, z(r0)
+
+; temp12 = 2 * -4
+daddiu r1, r0, 2
+daddiu r2, r0, -4
+dmult r1, r2
+mflo r3
+
+; a = -3 + temp12
+daddiu r1, r0, -3
+daddu r2, r1, r3
+sd r2, a(r0)
+
+; temp14 = 3 + 2
+daddiu r1, r0, 3
+daddiu r2, r0, 2
+daddu r3, r1, r2
+
+; temp15 = 0 - temp14
+daddiu r1, r0, 0
+dsub r2, r1, r3
+
+; temp16 = 4 / 2
+daddiu r1, r0, 4
+daddiu r3, r0, 2
+ddiv r1, r3
+mflo r4
+
+; b = temp15 * temp16
+dmult r2, r4
+mflo r1
+sd r1, b(r0)
+
+; temp18 = -3 * 2
+daddiu r1, r0, -3
+daddiu r2, r0, 2
+dmult r1, r2
+mflo r3
+
+; c = 5 - temp18
+daddiu r1, r0, 5
+dsub r2, r1, r3
+sd r2, c(r0)
+
+; n = 3
+daddiu r1, r0, 3
+sd r1, n(r0)
+
+; temp20 = n
+ld r1, n(r0)
+
+; n = n + 1
+ld r2, n(r0)
+daddiu r3, r0, 1
+daddu r4, r2, r3
+sd r4, n(r0)
+
+; n = n + 1
+ld r2, n(r0)
+daddiu r3, r0, 1
+daddu r4, r2, r3
+sd r4, n(r0)
+
+; temp21 = n * 2
+ld r2, n(r0)
+daddiu r3, r0, 2
+dmult r2, r3
+mflo r4
+
+; r1 = temp20 + temp21
+daddu r2, r1, r4
+sd r2, r1(r0)
+
+; n = n - 1
+ld r1, n(r0)
+daddiu r2, r0, 1
+dsub r3, r1, r2
+sd r3, n(r0)
+
+; temp23 = n
+ld r1, n(r0)
+
+; n = n + 1
+ld r2, n(r0)
+daddiu r3, r0, 1
+daddu r4, r2, r3
+sd r4, n(r0)
+
+; temp24 = n + temp23
+ld r2, n(r0)
+daddu r3, r2, r1
+
+; n = n + 1
+ld r1, n(r0)
+daddiu r2, r0, 1
+daddu r4, r1, r2
+sd r4, n(r0)
+
+; r2 = temp24 - n
+ld r1, n(r0)
+dsub r2, r3, r1
+sd r2, r2(r0)
+
+; temp26 = n
+ld r1, n(r0)
+
+; n = n - 1
+ld r2, n(r0)
+daddiu r3, r0, 1
+dsub r4, r2, r3
+sd r4, n(r0)
+
+; n = n + 1
+ld r2, n(r0)
+daddiu r3, r0, 1
+daddu r4, r2, r3
+sd r4, n(r0)
+
+; temp27 = temp26 * n
+ld r2, n(r0)
+dmult r1, r2
+mflo r3
+
+; n = n - 1
+ld r1, n(r0)
+daddiu r2, r0, 1
+dsub r4, r1, r2
+sd r4, n(r0)
+
+; r3 = temp27 + n
+ld r1, n(r0)
+daddu r2, r3, r1
+sd r2, r3(r0)
+
+; a = 2
+daddiu r1, r0, 2
+sd r1, a(r0)
+
+; b = 3
+daddiu r1, r0, 3
+sd r1, b(r0)
+
+; c = 4
+daddiu r1, r0, 4
+sd r1, c(r0)
+
+; temp29 = b
+ld r1, b(r0)
+
+; b = b + 1
+ld r2, b(r0)
+daddiu r3, r0, 1
+daddu r4, r2, r3
+sd r4, b(r0)
+
+; c = c - 1
+ld r2, c(r0)
+daddiu r3, r0, 1
+dsub r4, r2, r3
+sd r4, c(r0)
+
+; temp30 = temp29 * c
+ld r2, c(r0)
+dmult r1, r2
+mflo r3
+
+; a = a + 1
+ld r1, a(r0)
+daddiu r2, r0, 1
+daddu r4, r1, r2
+sd r4, a(r0)
+
+; temp31 = temp30 / a
+ld r1, a(r0)
 ddiv r3, r1
 mflo r2
 
-; temp2 = 2 - temp1
-daddiu r1, r0, 2
-dsub r3, r1, r2
-
-; a = 1 + temp2
-daddiu r1, r0, 1
-daddu r2, r1, r3
-sd r2, a(r0)
+; result = a + temp31
+ld r1, a(r0)
+daddu r3, r1, r2
+sd r3, result(r0)
