@@ -1,0 +1,98 @@
+// ================================================
+// BaiScript
+// Keywords:
+//   KUAN → generic type (like ENTEGER or CHAROT)
+//   ENTEGER → integer type
+//   CHAROT  → character type
+//   PRENT   → print statement
+// ================================================
+
+// Example:
+// KUAN a = 1!
+// KUAN b = 'c'!
+// PRENT a, b, "hello"!
+
+// ================================================
+// A. Program
+// ================================================
+S                       →   STATEMENT_LIST
+
+
+// ================================================
+// B. Statements
+// ================================================
+STATEMENT_LIST          → STATEMENT STATEMENT_LIST | ε
+STATEMENT               → DECLARATION '!' 
+                        | ASSIGNMENT '!' 
+                        | EXPRESSION '!' 
+                        | PRINTING '!'
+
+
+// ================================================
+// C. Printing
+// ================================================
+PRINTING                → 'PRENT' PRINT_LIST
+PRINT_LIST              → PRINT_ITEM PRINT_LIST_PRIME       |   ε
+PRINT_LIST_PRIME        → ',' PRINT_ITEM PRINT_LIST_PRIME   |   ε
+PRINT_ITEM              → EXPRESSION    |   STRING_LITERAL
+
+
+// ================================================
+// D. Declarations
+// ================================================
+DECLARATION             → DATATYPE INIT_DECLARATOR_LIST
+INIT_DECLARATOR_LIST    → INIT_DECLARATOR 
+                        | INIT_DECLARATOR ',' INIT_DECLARATOR_LIST
+INIT_DECLARATOR         → DECLARATOR 
+                        | DECLARATOR '=' EXPRESSION
+DECLARATOR              → IDENTIFIER    |   '(' DECLARATOR ')'
+DATATYPE                → 'CHAROT'      |   'ENTEGER'   |   'KUAN'
+
+
+// ================================================
+// E. Assignments
+// ================================================
+ASSIGNMENT              → ASSIGN_EXPR
+ASSIGN_EXPR             → IDENTIFIER ASSIGN_OP ASSIGN_EXPR | ADD_EXPR
+ASSIGN_OP               → '=' | '+=' | '-=' | '*=' | '/='
+
+
+// ================================================
+// F. Arithmetic Expressions
+// ================================================
+ADD_EXPR                → MULT_EXPR ADD_EXPR_PRIME
+ADD_EXPR_PRIME          → '+' MULT_EXPR ADD_EXPR_PRIME 
+                        | '-' MULT_EXPR ADD_EXPR_PRIME 
+                        | ε
+
+MULT_EXPR               → UNARY_EXPR MULT_EXPR_PRIME
+MULT_EXPR_PRIME         → '*' UNARY_EXPR MULT_EXPR_PRIME 
+                        | '/' UNARY_EXPR MULT_EXPR_PRIME 
+                        | ε
+
+
+// ================================================
+// G. Unary, Postfix, and Primary Expressions
+// ================================================
+UNARY_EXPR              → UNARY_OP UNARY_EXPR           | POSTFIX_EXPR
+POSTFIX_EXPR            → PRIMARY POSTFIX_EXPR_PRIME
+POSTFIX_EXPR_PRIME      → POSTFIX_OP POSTFIX_EXPR_PRIME | ε
+
+PRIMARY                 → IDENTIFIER 
+                        | INT_LITERAL 
+                        | CHAR_LITERAL 
+                        | STRING_LITERAL 
+                        | '(' EXPRESSION ')'
+
+
+// ================================================
+// H. Operators
+// ================================================
+UNARY_OP                → '+'   | '-'   | '++'  | '--'
+POSTFIX_OP              → '++'  | '--'
+
+
+// ================================================
+// I. Expression Entry Point
+// ================================================
+EXPRESSION              → ASSIGNMENT
