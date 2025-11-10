@@ -12,6 +12,7 @@ r3: .word64 0
 result: .word64 0
 
 .code
+<<<<<<< HEAD
 ; temp0 = 3 * 4
 daddiu r1, r0, 3
 daddiu r2, r0, 4
@@ -251,3 +252,15 @@ mflo r2
 ld r1, a(r0)
 daddu r3, r1, r2
 sd r3, result(r0)
+=======
+; temp0 = 2 * -4
+daddiu r1, r0, 2
+daddiu r2, r0, -4
+dmult r1, r2
+mflo r3
+
+; a = -3 + temp0
+daddiu r1, r0, -3
+daddu r2, r1, r3
+sd r2, a(r0)
+>>>>>>> 75ed26a425530d00f486177f1b3c7d35b6c72e10

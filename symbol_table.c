@@ -73,7 +73,7 @@ int update_symbol_value(const char *id, const char *datatype, const char *value_
 // Display the symbol table
 void display_symbol_table()
 {
-    printf("\nSymbol count: %d\n", symbol_count);
+    printf("Symbol count: %d\n", symbol_count);
     printf("Name            Type       Value/Expr                     Init?\n");
     printf("---------------------------------------------------------------\n");
 
