@@ -13,7 +13,7 @@ static SEM_TEMP evaluate_expression(ASTNode *node);
 static void analyze_statement_list(ASTNode *stmt_list);
 
 /* ----------------- Helpers ----------------- */
-
+// prints and counts the semantic errors
 static void sem_record_error(ASTNode *node, const char *fmt, ...)
 {
     sem_errors++;
@@ -27,6 +27,7 @@ static void sem_record_error(ASTNode *node, const char *fmt, ...)
     fprintf(stderr, "\n");
 }
 
+// prints semantic warnings
 static void sem_record_warning(ASTNode *node, const char *fmt, ...)
 {
     fprintf(stderr, "Semantic Warning: ");
@@ -39,6 +40,7 @@ static void sem_record_warning(ASTNode *node, const char *fmt, ...)
     fprintf(stderr, "\n");
 }
 
+// Expands memory buffer for temporary values
 static int ensure_temp_capacity(void)
 {
     if (sem_temps_count + 1 > sem_temps_capacity)
@@ -56,6 +58,7 @@ static int ensure_temp_capacity(void)
     return 1;
 }
 
+// creates and stores a new SEM_TEMP instance.
 static SEM_TEMP make_temp(SEM_TYPE type, int is_const, long val, ASTNode *node)
 {
     ensure_temp_capacity();
@@ -70,20 +73,21 @@ static SEM_TEMP make_temp(SEM_TYPE type, int is_const, long val, ASTNode *node)
 }
 
 /* ----------------- Known variable management ----------------- */
-
+//  Finds variable in knownVar info by name
 static KnownVar *find_known_var(const char *name)
 {
     for (KnownVar *k = known_vars_head; k; k = k->next)
         if (strcmp(k->name, name) == 0)
             return k;
+
     return NULL;
 }
 
-/* set_known_var stores a semantic-only value for a variable.
-   Does NOT modify the original symbol_table. Initializes used=0 unless it exists already. */
+// Adds or updates a known variable’s semantic info.
 static void set_known_var(const char *name, SEM_TEMP t, int initialized)
 {
     KnownVar *k = find_known_var(name);
+
     if (k)
     {
         k->temp = t;
@@ -91,12 +95,14 @@ static void set_known_var(const char *name, SEM_TEMP t, int initialized)
         /* do not reset 'used' because prior uses are still relevant */
         return;
     }
+
     k = malloc(sizeof(KnownVar));
     if (!k)
     {
         fprintf(stderr, "Out of memory in set_known_var\n");
         exit(1);
     }
+
     k->name = strdup(name);
     k->temp = t;
     k->initialized = initialized;
@@ -105,7 +111,7 @@ static void set_known_var(const char *name, SEM_TEMP t, int initialized)
     known_vars_head = k;
 }
 
-/* remove semantic-known entry (e.g., on non-constant assignment) */
+// remove semantic-known entry
 static void remove_known_var(const char *name)
 {
     KnownVar **pp = &known_vars_head;
@@ -542,28 +548,34 @@ static SEM_TEMP evaluate_expression(ASTNode *node)
 }
 
 /* ----------------- Statement analysis ----------------- */
-
+// Walk through the AST, find statements, handle declarations, evaluate expressions, and warn about unused variables.
 static void analyze_statement_list(ASTNode *stmt_list)
 {
+    // Go through each statement node in the list. Each node’s right pointer links to the next statement.
     for (ASTNode *cur = stmt_list; cur; cur = cur->right)
     {
         if (!cur)
             break;
 
+        // check if it is nested, then dive
         if (cur->type == NODE_STATEMENT_LIST)
         {
             ASTNode *stmt_wrapper = cur->left;
+
             if (!stmt_wrapper)
                 continue;
+
             if (stmt_wrapper->type == NODE_STATEMENT && stmt_wrapper->left)
             {
                 ASTNode *stmt = stmt_wrapper->left;
                 if (!stmt)
                     continue;
 
+                // handle statement declaration
                 if (stmt->type == NODE_DECLARATION)
                 {
                     ASTNode *decls = stmt->left;
+
                     while (decls)
                     {
                         const char *idname = decls->value;
@@ -639,27 +651,13 @@ static void analyze_statement_list(ASTNode *stmt_list)
     }
 }
 
-/* ----------------- Public API ----------------- */
-
+// main driver function
 int semantic_analyzer(void)
 {
-    /* reset state */
-    sem_errors = 0;
-    sem_temps_count = 0;
-    sem_next_temp_id = 1;
-
-    /* free known_vars if any */
-    while (known_vars_head)
-    {
-        KnownVar *n = known_vars_head;
-        known_vars_head = n->next;
-        free(n->name);
-        free(n);
-    }
-
+    // check if there is a parse tree
     if (!syntax_tree)
     {
-        fprintf(stderr, "Semantic Analyzer: no syntax tree available\n");
+        printf("Semantic Analyzer: no syntax tree available\n");
         return 1;
     }
 

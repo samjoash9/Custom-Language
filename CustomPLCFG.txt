@@ -35,17 +35,3 @@ POSTFIX_OP              → '++' | '--'
 
 /* H. Expression entry point */
 EXPRESSION              → ASSIGNMENT
-
-/* I. Lexical placeholders */
-IDENTIFIER              → LETTER IDENT_TAIL
-IDENT_TAIL              → LETTER IDENT_TAIL | DIGIT IDENT_TAIL | '_' IDENT_TAIL | ε
-LETTER                  → 'a' | 'b' | ... | 'z' | 'A' | ... | 'Z'
-DIGIT                   → '0' | '1' | ... | '9'
-
-INT_LITERAL              → DIGIT INT_TAIL
-INT_TAIL                → DIGIT INT_TAIL | ε
-CHAR_LITERAL            → '\'' CHARACTER '\''
-
-CHARACTER               → NON_ESCAPE_CHAR | ESCAPE_SEQUENCE
-NON_ESCAPE_CHAR         → (all allowed char except '\'' and '\\' and control chars)
-ESCAPE_SEQUENCE         → '\\' ( 'n' | 't' | 'r' | '\'' | '"' | '\\' | '0' )
