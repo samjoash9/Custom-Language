@@ -9,10 +9,12 @@ n: .word64 0
 r1: .word64 0
 r2: .word64 0
 r3: .word64 0
+e: .word64 0
+f: .word64 0
+g: .word64 0
 result: .word64 0
 
 .code
-<<<<<<< HEAD
 ; temp0 = 3 * 4
 daddiu r1, r0, 3
 daddiu r2, r0, 4
@@ -205,62 +207,50 @@ ld r1, n(r0)
 daddu r2, r3, r1
 sd r2, r3(r0)
 
-; a = 2
+; e = 2
 daddiu r1, r0, 2
-sd r1, a(r0)
+sd r1, e(r0)
 
-; b = 3
+; f = 3
 daddiu r1, r0, 3
-sd r1, b(r0)
+sd r1, f(r0)
 
-; c = 4
+; g = 4
 daddiu r1, r0, 4
-sd r1, c(r0)
+sd r1, g(r0)
 
-; temp29 = b
-ld r1, b(r0)
+; temp29 = f
+ld r1, f(r0)
 
-; b = b + 1
-ld r2, b(r0)
+; f = f + 1
+ld r2, f(r0)
 daddiu r3, r0, 1
 daddu r4, r2, r3
-sd r4, b(r0)
+sd r4, f(r0)
 
-; c = c - 1
-ld r2, c(r0)
+; g = g - 1
+ld r2, g(r0)
 daddiu r3, r0, 1
 dsub r4, r2, r3
-sd r4, c(r0)
+sd r4, g(r0)
 
-; temp30 = temp29 * c
-ld r2, c(r0)
+; temp30 = temp29 * g
+ld r2, g(r0)
 dmult r1, r2
 mflo r3
 
-; a = a + 1
-ld r1, a(r0)
+; e = e + 1
+ld r1, e(r0)
 daddiu r2, r0, 1
 daddu r4, r1, r2
-sd r4, a(r0)
+sd r4, e(r0)
 
-; temp31 = temp30 / a
-ld r1, a(r0)
+; temp31 = temp30 / e
+ld r1, e(r0)
 ddiv r3, r1
 mflo r2
 
-; result = a + temp31
-ld r1, a(r0)
+; result = e + temp31
+ld r1, e(r0)
 daddu r3, r1, r2
 sd r3, result(r0)
-=======
-; temp0 = 2 * -4
-daddiu r1, r0, 2
-daddiu r2, r0, -4
-dmult r1, r2
-mflo r3
-
-; a = -3 + temp0
-daddiu r1, r0, -3
-daddu r2, r1, r3
-sd r2, a(r0)
->>>>>>> 75ed26a425530d00f486177f1b3c7d35b6c72e10

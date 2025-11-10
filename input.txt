@@ -8,5 +8,5 @@ int n = 3;
 int r1 = n++ + ++n * 2;           // r1 = 3 + (5 * 2) = 13, n = 5
 int r2 = --n + n++ - ++n;         // r2 = 4 + 4 - 6 = 2, n = 6
 int r3 = n-- * ++n + --n;         // r3 = 6 * 6 + 5 = 41, n = 5
-int a = 2, b = 3, c = 4;
-int result = a + b++ * --c / ++a; // a=3,b=4,c=3 → result=2 + 3*3/3 = 5s
+int e = 2, f = 3, g = 4;
+int result = e + f++ * --g / ++e; // e=3,f=4,g=3 → result=2 + 3*3/3 = 5
