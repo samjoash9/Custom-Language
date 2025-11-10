@@ -13,6 +13,69 @@ static SEM_TEMP evaluate_expression(ASTNode *node);
 static void analyze_statement_list(ASTNode *stmt_list);
 
 /* ----------------- Helpers ----------------- */
+/* Parses a char literal like 'a', '\n', '\\', '\t', etc.
+   Returns 1 if valid, with ASCII value in *out. */
+static int try_parse_char_literal(const char *lex, long *out)
+{
+    if (!lex)
+        return 0;
+
+    size_t len = strlen(lex);
+
+    // must start and end with single quotes and have at least 3 chars: 'x'
+    if (len < 3 || lex[0] != '\'' || lex[len - 1] != '\'')
+        return 0;
+
+    // content length between quotes
+    size_t content_len = len - 2; // excludes surrounding quotes
+
+    // simple char: 'x'  -> content_len == 1
+    if (content_len == 1)
+    {
+        unsigned char c = (unsigned char)lex[1];
+        *out = (long)c;
+        return 1;
+    }
+
+    // escape sequence like '\n' -> content_len == 2 (backslash + code)
+    if (content_len == 2 && lex[1] == '\\')
+    {
+        char esc = lex[2];
+        unsigned char c;
+        switch (esc)
+        {
+        case 'n':
+            c = '\n';
+            break;
+        case 't':
+            c = '\t';
+            break;
+        case 'r':
+            c = '\r';
+            break;
+        case '0':
+            c = '\0';
+            break;
+        case '\\':
+            c = '\\';
+            break;
+        case '\'':
+            c = '\'';
+            break;
+        case '\"':
+            c = '\"';
+            break;
+        default:
+            return 0; // unknown/unsupported escape
+        }
+        *out = (long)c;
+        return 1;
+    }
+
+    // not a supported char literal form
+    return 0;
+}
+
 // prints and counts the semantic errors
 static void sem_record_error(ASTNode *node, const char *fmt, ...)
 {
@@ -201,10 +264,10 @@ static int try_eval_constant(ASTNode *node, long *out)
             return 1;
         }
 
-        /* char literal like 'a' */
-        if (lex[0] == '\'' && lex[2] == '\'' && lex[3] == '\0')
+        long cv;
+        if (try_parse_char_literal(lex, &cv))
         {
-            *out = (unsigned char)lex[1];
+            *out = cv;
             return 1;
         }
 
@@ -320,9 +383,9 @@ static SEM_TEMP eval_factor(ASTNode *node)
         if (try_parse_int(lex, &v))
             return make_temp(SEM_TYPE_INT, 1, v, node);
 
-        if (lex[0] == '\'' && lex[1] != '\0' && lex[2] == '\'' && lex[3] == '\0')
+        long cv;
+        if (try_parse_char_literal(lex, &cv))
         {
-            long cv = (unsigned char)lex[1];
             return make_temp(SEM_TYPE_CHAR, 1, cv, node);
         }
 
@@ -469,6 +532,7 @@ static SEM_TEMP eval_additive(ASTNode *node)
 }
 
 /* evaluate assignment nodes */
+/* evaluate assignment nodes */
 static SEM_TEMP eval_assignment(ASTNode *node)
 {
     if (!node)
@@ -505,6 +569,13 @@ static SEM_TEMP eval_assignment(ASTNode *node)
     {
         SEM_TEMP store_temp = make_temp(datatype_to_semtype(symbol_table[idx].datatype), 1, rhs_temp.int_value, node);
         set_known_var(varname, store_temp, 1);
+
+        /* Propagate constant value into symbol table so later passes (TAC/ASM) see numeric value */
+        if (symbol_table[idx].value_str)
+        {
+            snprintf(symbol_table[idx].value_str, sizeof(symbol_table[idx].value_str), "%ld", rhs_temp.int_value);
+            symbol_table[idx].initialized = 1;
+        }
     }
     else
     {
@@ -610,6 +681,14 @@ static void analyze_statement_list(ASTNode *stmt_list)
                             {
                                 SEM_TEMP store_temp = make_temp(datatype_to_semtype(stmt->value), 1, val.int_value, decls);
                                 set_known_var(idname, store_temp, 1); // mark as initialized
+
+                                // Propagate constant initializer into the symbol table
+                                int sidx = find_symbol(idname);
+                                if (sidx != -1 && symbol_table[sidx].value_str)
+                                {
+                                    snprintf(symbol_table[sidx].value_str, sizeof(symbol_table[sidx].value_str), "%ld", val.int_value);
+                                    symbol_table[sidx].initialized = 1;
+                                }
                             }
                             else
                             {

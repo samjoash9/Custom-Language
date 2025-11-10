@@ -39,6 +39,68 @@ static void emit(const char *result, const char *arg1, const char *op, const cha
     codeCount++;
 }
 
+/* ---------- Helper: parse char literal into numeric string ----------
+   Accepts forms: 'x' and escape forms like '\n', '\t', '\\', '\'', '\"', '\0'
+   If successful writes decimal string into outbuf and returns 1.
+   Otherwise returns 0.
+*/
+static int char_literal_to_decstr(const char *lex, char *outbuf, size_t outsz)
+{
+    if (!lex || outbuf == NULL)
+        return 0;
+
+    size_t len = strlen(lex);
+    if (len < 3 || lex[0] != '\'' || lex[len - 1] != '\'')
+        return 0;
+
+    size_t content_len = len - 2; // between quotes
+
+    unsigned char c = 0;
+    if (content_len == 1)
+    {
+        c = (unsigned char)lex[1];
+    }
+    else if (content_len >= 2 && lex[1] == '\\')
+    {
+        // handle common escapes; if malformed, reject
+        char esc = lex[2];
+        switch (esc)
+        {
+        case 'n':
+            c = '\n';
+            break;
+        case 't':
+            c = '\t';
+            break;
+        case 'r':
+            c = '\r';
+            break;
+        case '0':
+            c = '\0';
+            break;
+        case '\\':
+            c = '\\';
+            break;
+        case '\'':
+            c = '\'';
+            break;
+        case '\"':
+            c = '\"';
+            break;
+        default:
+            return 0;
+        }
+    }
+    else
+    {
+        return 0;
+    }
+
+    // write decimal representation
+    snprintf(outbuf, outsz, "%u", (unsigned)c);
+    return 1;
+}
+
 // === Expression Generator ===
 static char *generateExpression(ASTNode *node)
 {
@@ -47,7 +109,29 @@ static char *generateExpression(ASTNode *node)
 
     // Leaf node (identifier or literal)
     if (node->left == NULL && node->right == NULL)
-        return strdup(node->value ? node->value : "");
+    {
+        const char *lex = node->value ? node->value : "";
+
+        // If it's a char literal like 'a' or '\n', convert to decimal string "97"
+        char tmpbuf[32];
+        if (char_literal_to_decstr(lex, tmpbuf, sizeof(tmpbuf)))
+        {
+            return strdup(tmpbuf);
+        }
+
+        // If it's an identifier, and symbol table contains an initialized value_str, return that
+        if ((isalpha((unsigned char)lex[0]) || lex[0] == '_'))
+        {
+            int idx = find_symbol(lex);
+            if (idx != -1 && symbol_table[idx].initialized && symbol_table[idx].value_str[0] != '\0')
+            {
+                return strdup(symbol_table[idx].value_str);
+            }
+        }
+
+        // otherwise return the lexeme as-is (covers integer literals and other tokens)
+        return strdup(lex);
+    }
 
     // Assignment (simple or compound)
     if (node->type == NODE_ASSIGNMENT && node->left && node->right)
