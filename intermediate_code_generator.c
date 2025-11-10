@@ -163,27 +163,64 @@ static char *generateExpression(ASTNode *node)
     // Postfix operations (++ / --)
     if (node->type == NODE_POSTFIX_OP && node->left)
     {
-        char *var = generateExpression(node->left); // get current value
-        char *tmp = newTemp();                      // temp for expression
-
-        if (strcmp(node->value, "++") == 0)
+        // Prefer direct variable name when available to avoid re-evaluation that returns a literal or temp.
+        const char *varname = node->left->value;
+        if (!varname)
         {
-            emit(tmp, var, "=", NULL); // tmp = current value
-            emit(var, var, "+", "1");  // increment after
+            // fallback: evaluate left expression
+            char *var = generateExpression(node->left);
+            varname = var; // note: var is heap-allocated string
+            char *tmp = newTemp();
+            if (strcmp(node->value, "++") == 0)
+            {
+                emit(tmp, varname, "=", NULL);    // tmp = a
+                emit(varname, varname, "+", "1"); // a = a + 1
+            }
+            else if (strcmp(node->value, "--") == 0)
+            {
+                emit(tmp, varname, "=", NULL);    // tmp = a
+                emit(varname, varname, "-", "1"); // a = a - 1
+            }
+            free(var);
+            return tmp;
         }
-        else if (strcmp(node->value, "--") == 0)
+        else
         {
-            emit(tmp, var, "=", NULL); // tmp = current value
-            emit(var, var, "-", "1");  // decrement after
+            char *tmp = newTemp();
+            if (strcmp(node->value, "++") == 0)
+            {
+                emit(tmp, varname, "=", NULL);    // tmp = a
+                emit(varname, varname, "+", "1"); // a = a + 1
+            }
+            else if (strcmp(node->value, "--") == 0)
+            {
+                emit(tmp, varname, "=", NULL);    // tmp = a
+                emit(varname, varname, "-", "1"); // a = a - 1
+            }
+            return tmp;
         }
-
-        free(var);
-        return tmp; // use original value in expression
     }
 
     // Unary operators (++ / -- / + / -)
     if (node->type == NODE_UNARY_OP && node->left)
     {
+        // Prefer direct variable name when available to avoid re-evaluation
+        const char *varname = node->left->value;
+        if ((strcmp(node->value, "++") == 0 || strcmp(node->value, "--") == 0) && varname)
+        {
+            if (strcmp(node->value, "++") == 0)
+            {
+                emit(varname, varname, "+", "1"); // a = a + 1
+                return strdup(varname);
+            }
+            else
+            {
+                emit(varname, varname, "-", "1"); // a = a - 1
+                return strdup(varname);
+            }
+        }
+
+        // otherwise evaluate normally (covers unary + and - and complex LHS)
         char *lhs = generateExpression(node->left);
         if (strcmp(node->value, "++") == 0)
         {
