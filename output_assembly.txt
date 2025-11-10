@@ -7,15 +7,15 @@ daddiu r1, r0, 1
 daddiu r2, r0, 2
 daddu r3, r1, r2
 
-; temp1 = 3 * 4
-daddiu r1, r0, 3
-daddiu r2, r0, 4
-dmult r1, r2
+; temp1 = 12 / 1
+daddiu r1, r0, 12
+daddiu r2, r0, 1
+ddiv r1, r2
 mflo r4
 
-; temp2 = temp1 / 2
+; temp2 = temp1 * 2
 daddiu r1, r0, 2
-ddiv r4, r1
+dmult r4, r1
 mflo r2
 
 ; a = temp0 - temp2

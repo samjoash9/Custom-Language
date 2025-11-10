@@ -64,6 +64,7 @@ int main()
         free(source_code);
         return 1;
     }
+    printf("====== SEMANTIC ANALYZER END ======\n\n");
 
     // === STEP 4: INTERMEDIATE CODE GENERATION ===
     generate_intermediate_code(syntax_tree);
