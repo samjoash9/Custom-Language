@@ -1,6 +1,7 @@
 #ifndef LEXICAL_ANALYZER_H
 #define LEXICAL_ANALYZER_H
 
+#include <stdio.h>
 #include <string.h>
 #include <ctype.h>
 

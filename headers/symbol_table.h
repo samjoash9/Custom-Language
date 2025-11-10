@@ -1,9 +1,11 @@
 #ifndef SYMBOL_TABLE_H
 #define SYMBOL_TABLE_H
 
-#define MAX_SYMBOLS 1024
-
+#include <stdio.h>
+#include <string.h>
 #include <ctype.h>
+
+#define MAX_SYMBOLS 1024
 
 // Struct for one symbol entry
 typedef struct

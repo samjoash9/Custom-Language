@@ -28,6 +28,7 @@ TOKEN *consume()
 int match(const char *lexeme)
 {
     TOKEN *tok = peek();
+
     if (tok && strcmp(tok->lexeme, lexeme) == 0)
     {
         consume();
@@ -132,6 +133,7 @@ ASTNode *parse_statement_list()
 ASTNode *parse_statement()
 {
     TOKEN *tok = peek();
+
     if (!tok)
         return NULL;
 

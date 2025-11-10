@@ -1,5 +1,3 @@
-#include <stdio.h>
-#include <string.h>
 #include "headers/symbol_table.h"
 
 SYMBOL_TABLE symbol_table[MAX_SYMBOLS];

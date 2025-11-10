@@ -1,6 +1,12 @@
 #ifndef SEMANTIC_ANALYZER_H
 #define SEMANTIC_ANALYZER_H
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <ctype.h>
+#include <stdarg.h>
+
 #include "syntax_analyzer.h"
 #include "symbol_table.h"
 

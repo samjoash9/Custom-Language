@@ -1,6 +1,3 @@
-#include <stdio.h>
-#include <ctype.h>
-#include <string.h>
 #include "headers/lexical_analyzer.h"
 
 TOKEN tokens[MAX_TOKENS];

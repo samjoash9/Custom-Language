@@ -1,15 +1,4 @@
-// semantic_analyzer.c
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <ctype.h>
-#include <stdarg.h>
-
 #include "headers/semantic_analyzer.h"
-#include "headers/symbol_table.h"
-#include "headers/syntax_analyzer.h"
-
-/* ----------------- Internal storage ----------------- */
 
 static SEM_TEMP *sem_temps = NULL;
 static size_t sem_temps_capacity = 0;

@@ -1,6 +1,10 @@
 #ifndef INTERMEDIATE_CODE_GENERATOR_H
 #define INTERMEDIATE_CODE_GENERATOR_H
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <ctype.h>
 #include "syntax_analyzer.h"
 #include "symbol_table.h"
 

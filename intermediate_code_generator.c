@@ -1,11 +1,6 @@
-// intermediate_code_generator.c
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <ctype.h>
-
 #include "headers/intermediate_code_generator.h"
 
+// GLOBALS
 static TACInstruction *code = NULL;
 TACInstruction *optimizedCode = NULL;
 static int codeCount = 0;
