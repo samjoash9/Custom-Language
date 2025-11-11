@@ -25,6 +25,7 @@ static char *newTemp()
 static void emit(const char *result, const char *arg1, const char *op, const char *arg2)
 {
     TACInstruction *tmp = realloc(code, sizeof(TACInstruction) * (codeCount + 1));
+
     if (!tmp)
     {
         fprintf(stderr, "Memory allocation failed in emit()\n");

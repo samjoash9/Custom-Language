@@ -18,7 +18,7 @@ int main()
     if (fp == NULL)
     {
         printf("Error: unable to open file.\n");
-        return 1;
+        return 0;
     }
 
     fseek(fp, 0, SEEK_END);
@@ -30,7 +30,7 @@ int main()
     {
         printf("Error: Source code memory allocation failed.\n");
         fclose(fp);
-        return 1;
+        return 0;
     }
 
     size_t bytesRead = fread(source_code, 1, length, fp);
@@ -42,7 +42,7 @@ int main()
     {
         printf("Compilation stopped: Lexical errors found.\n");
         free(source_code);
-        return 1;
+        return 0;
     }
 
     // === STEP 2: SYNTAX ANALYSIS ===
@@ -52,7 +52,7 @@ int main()
     {
         printf("\nCompilation aborted due to syntax error.\n");
         free(source_code);
-        return 1;
+        return 0;
     }
 
     // === STEP 3: SEMANTIC ANALYSIS ===
@@ -62,7 +62,7 @@ int main()
     {
         printf("\nCompilation aborted due to semantic error.\n");
         free(source_code);
-        return 1;
+        return 0;
     }
     printf("====== SEMANTIC ANALYZER END ======\n\n");
 

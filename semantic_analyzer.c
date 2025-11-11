@@ -87,6 +87,7 @@ static void sem_record_error(ASTNode *node, const char *fmt, ...)
     va_end(ap);
     if (node && node->value)
         fprintf(stderr, " (node: '%s')", node->value);
+
     fprintf(stderr, "\n");
 }
 

@@ -258,7 +258,6 @@ int lexer(const char *src)
         */
 
         // casting: <ctype.h> functions (isdigit, isspace, etc.) are undefined for negative char values.
-
         if (isdigit((unsigned char)c) ||
             ((c == '+' || c == '-') &&
              i + 1 < len && isdigit((unsigned char)src[i + 1]) &&

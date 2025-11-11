@@ -11,7 +11,6 @@
 #include "symbol_table.h"
 
 #define SEM_MAX_TEMPS 2048
-
 typedef enum
 {
     SEM_TYPE_UNKNOWN = 0,

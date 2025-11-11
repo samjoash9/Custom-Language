@@ -90,10 +90,6 @@ Register *get_available_register()
         }
     }
 
-    // if we reach this point, then there is no available register to allocate
-    printf("You've reach the limit of registers in MIPS64.\n");
-    exit(0);
-
     return NULL;
 }
 
