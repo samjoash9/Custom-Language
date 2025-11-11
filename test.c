@@ -26,6 +26,6 @@ int main()
                       (i2 * j2) - (k2 * l2) + (m2 * n2) - (o2 * p2)) /
                   ((q2 * r2) + (s2 * t2) - (u2 * v2) + (w2 * x2)) * ((y2 * z2) - (a3 * b3) + (c3 * d3) - (e3 * f3)));
 
-    printf("%d\n", result);
+    printf("%d\n",result);
     return 0;
 }

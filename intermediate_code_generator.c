@@ -1,6 +1,11 @@
+// intermediate_code_generator.c
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <ctype.h>
+
 #include "headers/intermediate_code_generator.h"
 
-// GLOBALS
 static TACInstruction *code = NULL;
 TACInstruction *optimizedCode = NULL;
 static int codeCount = 0;
@@ -25,7 +30,6 @@ static char *newTemp()
 static void emit(const char *result, const char *arg1, const char *op, const char *arg2)
 {
     TACInstruction *tmp = realloc(code, sizeof(TACInstruction) * (codeCount + 1));
-
     if (!tmp)
     {
         fprintf(stderr, "Memory allocation failed in emit()\n");
@@ -40,68 +44,6 @@ static void emit(const char *result, const char *arg1, const char *op, const cha
     codeCount++;
 }
 
-/* ---------- Helper: parse char literal into numeric string ----------
-   Accepts forms: 'x' and escape forms like '\n', '\t', '\\', '\'', '\"', '\0'
-   If successful writes decimal string into outbuf and returns 1.
-   Otherwise returns 0.
-*/
-static int char_literal_to_decstr(const char *lex, char *outbuf, size_t outsz)
-{
-    if (!lex || outbuf == NULL)
-        return 0;
-
-    size_t len = strlen(lex);
-    if (len < 3 || lex[0] != '\'' || lex[len - 1] != '\'')
-        return 0;
-
-    size_t content_len = len - 2; // between quotes
-
-    unsigned char c = 0;
-    if (content_len == 1)
-    {
-        c = (unsigned char)lex[1];
-    }
-    else if (content_len >= 2 && lex[1] == '\\')
-    {
-        // handle common escapes; if malformed, reject
-        char esc = lex[2];
-        switch (esc)
-        {
-        case 'n':
-            c = '\n';
-            break;
-        case 't':
-            c = '\t';
-            break;
-        case 'r':
-            c = '\r';
-            break;
-        case '0':
-            c = '\0';
-            break;
-        case '\\':
-            c = '\\';
-            break;
-        case '\'':
-            c = '\'';
-            break;
-        case '\"':
-            c = '\"';
-            break;
-        default:
-            return 0;
-        }
-    }
-    else
-    {
-        return 0;
-    }
-
-    // write decimal representation
-    snprintf(outbuf, outsz, "%u", (unsigned)c);
-    return 1;
-}
-
 // === Expression Generator ===
 static char *generateExpression(ASTNode *node)
 {
@@ -110,29 +52,7 @@ static char *generateExpression(ASTNode *node)
 
     // Leaf node (identifier or literal)
     if (node->left == NULL && node->right == NULL)
-    {
-        const char *lex = node->value ? node->value : "";
-
-        // If it's a char literal like 'a' or '\n', convert to decimal string "97"
-        char tmpbuf[32];
-        if (char_literal_to_decstr(lex, tmpbuf, sizeof(tmpbuf)))
-        {
-            return strdup(tmpbuf);
-        }
-
-        // If it's an identifier, and symbol table contains an initialized value_str, return that
-        if ((isalpha((unsigned char)lex[0]) || lex[0] == '_'))
-        {
-            int idx = find_symbol(lex);
-            if (idx != -1 && symbol_table[idx].initialized && symbol_table[idx].value_str[0] != '\0')
-            {
-                return strdup(symbol_table[idx].value_str);
-            }
-        }
-
-        // otherwise return the lexeme as-is (covers integer literals and other tokens)
-        return strdup(lex);
-    }
+        return strdup(node->value ? node->value : "");
 
     // Assignment (simple or compound)
     if (node->type == NODE_ASSIGNMENT && node->left && node->right)
@@ -164,64 +84,27 @@ static char *generateExpression(ASTNode *node)
     // Postfix operations (++ / --)
     if (node->type == NODE_POSTFIX_OP && node->left)
     {
-        // Prefer direct variable name when available to avoid re-evaluation that returns a literal or temp.
-        const char *varname = node->left->value;
-        if (!varname)
+        char *var = generateExpression(node->left); // get current value
+        char *tmp = newTemp();                      // temp for expression
+
+        if (strcmp(node->value, "++") == 0)
         {
-            // fallback: evaluate left expression
-            char *var = generateExpression(node->left);
-            varname = var; // note: var is heap-allocated string
-            char *tmp = newTemp();
-            if (strcmp(node->value, "++") == 0)
-            {
-                emit(tmp, varname, "=", NULL);    // tmp = a
-                emit(varname, varname, "+", "1"); // a = a + 1
-            }
-            else if (strcmp(node->value, "--") == 0)
-            {
-                emit(tmp, varname, "=", NULL);    // tmp = a
-                emit(varname, varname, "-", "1"); // a = a - 1
-            }
-            free(var);
-            return tmp;
+            emit(tmp, var, "=", NULL); // tmp = current value
+            emit(var, var, "+", "1");  // increment after
         }
-        else
+        else if (strcmp(node->value, "--") == 0)
         {
-            char *tmp = newTemp();
-            if (strcmp(node->value, "++") == 0)
-            {
-                emit(tmp, varname, "=", NULL);    // tmp = a
-                emit(varname, varname, "+", "1"); // a = a + 1
-            }
-            else if (strcmp(node->value, "--") == 0)
-            {
-                emit(tmp, varname, "=", NULL);    // tmp = a
-                emit(varname, varname, "-", "1"); // a = a - 1
-            }
-            return tmp;
+            emit(tmp, var, "=", NULL); // tmp = current value
+            emit(var, var, "-", "1");  // decrement after
         }
+
+        free(var);
+        return tmp; // use original value in expression
     }
 
     // Unary operators (++ / -- / + / -)
     if (node->type == NODE_UNARY_OP && node->left)
     {
-        // Prefer direct variable name when available to avoid re-evaluation
-        const char *varname = node->left->value;
-        if ((strcmp(node->value, "++") == 0 || strcmp(node->value, "--") == 0) && varname)
-        {
-            if (strcmp(node->value, "++") == 0)
-            {
-                emit(varname, varname, "+", "1"); // a = a + 1
-                return strdup(varname);
-            }
-            else
-            {
-                emit(varname, varname, "-", "1"); // a = a - 1
-                return strdup(varname);
-            }
-        }
-
-        // otherwise evaluate normally (covers unary + and - and complex LHS)
         char *lhs = generateExpression(node->left);
         if (strcmp(node->value, "++") == 0)
         {
