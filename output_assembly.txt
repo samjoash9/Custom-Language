@@ -2,9 +2,4 @@
 a: .word64 0
 
 .code
-; a = 2 * 3
-daddiu r1, r0, 2
-daddiu r2, r0, 3
-dmult r1, r2
-mflo r3
-sd r3, a(r0)
+; a = 'a'

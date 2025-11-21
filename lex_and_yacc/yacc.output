@@ -1,0 +1,991 @@
+Grammar
+
+    0 $accept: S $end
+
+    1 S: STATEMENT_LIST
+
+    2 STATEMENT_LIST: STATEMENT STATEMENT_LIST
+    3               | /* empty */
+
+    4 STATEMENT: DECLARATION EXCLAM
+    5          | ASSIGNMENT EXCLAM
+    6          | SIMPLE_EXPR EXCLAM
+    7          | PRINTING EXCLAM
+    8          | EXCLAM
+
+    9 PRINTING: PRENT PRINT_LIST
+
+   10 PRINT_LIST: PRINT_ITEM PRINT_LIST_PRIME
+   11           | /* empty */
+
+   12 PRINT_LIST_PRIME: COMMA PRINT_ITEM PRINT_LIST_PRIME
+   13                 | /* empty */
+
+   14 PRINT_ITEM: SIMPLE_EXPR
+   15           | STRING_LITERAL
+
+   16 DECLARATION: DATATYPE INIT_DECLARATOR_LIST
+
+   17 DATATYPE: CHAROT
+   18         | ENTEGER
+   19         | KUAN
+
+   20 INIT_DECLARATOR_LIST: INIT_DECLARATOR
+   21                     | INIT_DECLARATOR COMMA INIT_DECLARATOR_LIST
+
+   22 INIT_DECLARATOR: DECLARATOR
+   23                | DECLARATOR EQUAL SIMPLE_EXPR
+
+   24 DECLARATOR: IDENTIFIER
+   25           | LPAREN DECLARATOR RPAREN
+
+   26 ASSIGNMENT: IDENTIFIER ASSIGN_OP ASSIGNMENT
+   27           | IDENTIFIER ASSIGN_OP SIMPLE_EXPR
+
+   28 ASSIGN_OP: EQUAL
+   29          | PLUS_EQUAL
+   30          | MINUS_EQUAL
+   31          | DIV_EQUAL
+
+   32 SIMPLE_EXPR: ADD_EXPR
+
+   33 ADD_EXPR: ADD_EXPR PLUS MULT_EXPR
+   34         | ADD_EXPR MINUS MULT_EXPR
+   35         | MULT_EXPR
+
+   36 MULT_EXPR: MULT_EXPR MUL UNARY_EXPR
+   37          | MULT_EXPR DIV UNARY_EXPR
+   38          | UNARY_EXPR
+
+   39 UNARY_EXPR: PLUS UNARY_EXPR
+   40           | MINUS UNARY_EXPR
+   41           | PLUSPLUS UNARY_EXPR
+   42           | MINUSMINUS UNARY_EXPR
+   43           | POSTFIX_EXPR
+
+   44 POSTFIX_EXPR: PRIMARY POSTFIX_OPS
+
+   45 POSTFIX_OPS: /* empty */
+   46            | POSTFIX_OPS POSTFIX_OP
+
+   47 POSTFIX_OP: PLUSPLUS
+   48           | MINUSMINUS
+
+   49 PRIMARY: IDENTIFIER
+   50        | INT_LITERAL
+   51        | CHAR_LITERAL
+   52        | LPAREN SIMPLE_EXPR RPAREN
+
+
+Terminals, with rules where they appear
+
+$end (0) 0
+error (256)
+KUAN (258) 19
+ENTEGER (259) 18
+CHAROT (260) 17
+PRENT (261) 9
+EXCLAM (262) 4 5 6 7 8
+PLUS_EQUAL (263) 29
+MINUS_EQUAL (264) 30
+DIV_EQUAL (265) 31
+EQUAL (266) 23 28
+PLUS (267) 33 39
+MINUS (268) 34 40
+MUL (269) 36
+DIV (270) 37
+PLUSPLUS (271) 41 47
+MINUSMINUS (272) 42 48
+LPAREN (273) 25 52
+RPAREN (274) 25 52
+COMMA (275) 12 21
+IDENTIFIER (276) 24 26 27 49
+INT_LITERAL (277) 50
+CHAR_LITERAL (278) 51
+STRING_LITERAL (279) 15
+UMINUS (280)
+UPLUS (281)
+
+
+Nonterminals, with rules where they appear
+
+$accept (27)
+    on left: 0
+S (28)
+    on left: 1, on right: 0
+STATEMENT_LIST (29)
+    on left: 2 3, on right: 1 2
+STATEMENT (30)
+    on left: 4 5 6 7 8, on right: 2
+PRINTING (31)
+    on left: 9, on right: 7
+PRINT_LIST (32)
+    on left: 10 11, on right: 9
+PRINT_LIST_PRIME (33)
+    on left: 12 13, on right: 10 12
+PRINT_ITEM (34)
+    on left: 14 15, on right: 10 12
+DECLARATION (35)
+    on left: 16, on right: 4
+DATATYPE (36)
+    on left: 17 18 19, on right: 16
+INIT_DECLARATOR_LIST (37)
+    on left: 20 21, on right: 16 21
+INIT_DECLARATOR (38)
+    on left: 22 23, on right: 20 21
+DECLARATOR (39)
+    on left: 24 25, on right: 22 23 25
+ASSIGNMENT (40)
+    on left: 26 27, on right: 5 26
+ASSIGN_OP (41)
+    on left: 28 29 30 31, on right: 26 27
+SIMPLE_EXPR (42)
+    on left: 32, on right: 6 14 23 27 52
+ADD_EXPR (43)
+    on left: 33 34 35, on right: 32 33 34
+MULT_EXPR (44)
+    on left: 36 37 38, on right: 33 34 35 36 37
+UNARY_EXPR (45)
+    on left: 39 40 41 42 43, on right: 36 37 38 39 40 41 42
+POSTFIX_EXPR (46)
+    on left: 44, on right: 43
+POSTFIX_OPS (47)
+    on left: 45 46, on right: 44 46
+POSTFIX_OP (48)
+    on left: 47 48, on right: 46
+PRIMARY (49)
+    on left: 49 50 51 52, on right: 44
+
+
+State 0
+
+    0 $accept: . S $end
+
+    KUAN          shift, and go to state 1
+    ENTEGER       shift, and go to state 2
+    CHAROT        shift, and go to state 3
+    PRENT         shift, and go to state 4
+    EXCLAM        shift, and go to state 5
+    PLUS          shift, and go to state 6
+    MINUS         shift, and go to state 7
+    PLUSPLUS      shift, and go to state 8
+    MINUSMINUS    shift, and go to state 9
+    LPAREN        shift, and go to state 10
+    IDENTIFIER    shift, and go to state 11
+    INT_LITERAL   shift, and go to state 12
+    CHAR_LITERAL  shift, and go to state 13
+
+    $default  reduce using rule 3 (STATEMENT_LIST)
+
+    S               go to state 14
+    STATEMENT_LIST  go to state 15
+    STATEMENT       go to state 16
+    PRINTING        go to state 17
+    DECLARATION     go to state 18
+    DATATYPE        go to state 19
+    ASSIGNMENT      go to state 20
+    SIMPLE_EXPR     go to state 21
+    ADD_EXPR        go to state 22
+    MULT_EXPR       go to state 23
+    UNARY_EXPR      go to state 24
+    POSTFIX_EXPR    go to state 25
+    PRIMARY         go to state 26
+
+
+State 1
+
+   19 DATATYPE: KUAN .
+
+    $default  reduce using rule 19 (DATATYPE)
+
+
+State 2
+
+   18 DATATYPE: ENTEGER .
+
+    $default  reduce using rule 18 (DATATYPE)
+
+
+State 3
+
+   17 DATATYPE: CHAROT .
+
+    $default  reduce using rule 17 (DATATYPE)
+
+
+State 4
+
+    9 PRINTING: PRENT . PRINT_LIST
+
+    PLUS            shift, and go to state 6
+    MINUS           shift, and go to state 7
+    PLUSPLUS        shift, and go to state 8
+    MINUSMINUS      shift, and go to state 9
+    LPAREN          shift, and go to state 10
+    IDENTIFIER      shift, and go to state 27
+    INT_LITERAL     shift, and go to state 12
+    CHAR_LITERAL    shift, and go to state 13
+    STRING_LITERAL  shift, and go to state 28
+
+    $default  reduce using rule 11 (PRINT_LIST)
+
+    PRINT_LIST    go to state 29
+    PRINT_ITEM    go to state 30
+    SIMPLE_EXPR   go to state 31
+    ADD_EXPR      go to state 22
+    MULT_EXPR     go to state 23
+    UNARY_EXPR    go to state 24
+    POSTFIX_EXPR  go to state 25
+    PRIMARY       go to state 26
+
+
+State 5
+
+    8 STATEMENT: EXCLAM .
+
+    $default  reduce using rule 8 (STATEMENT)
+
+
+State 6
+
+   39 UNARY_EXPR: PLUS . UNARY_EXPR
+
+    PLUS          shift, and go to state 6
+    MINUS         shift, and go to state 7
+    PLUSPLUS      shift, and go to state 8
+    MINUSMINUS    shift, and go to state 9
+    LPAREN        shift, and go to state 10
+    IDENTIFIER    shift, and go to state 27
+    INT_LITERAL   shift, and go to state 12
+    CHAR_LITERAL  shift, and go to state 13
+
+    UNARY_EXPR    go to state 32
+    POSTFIX_EXPR  go to state 25
+    PRIMARY       go to state 26
+
+
+State 7
+
+   40 UNARY_EXPR: MINUS . UNARY_EXPR
+
+    PLUS          shift, and go to state 6
+    MINUS         shift, and go to state 7
+    PLUSPLUS      shift, and go to state 8
+    MINUSMINUS    shift, and go to state 9
+    LPAREN        shift, and go to state 10
+    IDENTIFIER    shift, and go to state 27
+    INT_LITERAL   shift, and go to state 12
+    CHAR_LITERAL  shift, and go to state 13
+
+    UNARY_EXPR    go to state 33
+    POSTFIX_EXPR  go to state 25
+    PRIMARY       go to state 26
+
+
+State 8
+
+   41 UNARY_EXPR: PLUSPLUS . UNARY_EXPR
+
+    PLUS          shift, and go to state 6
+    MINUS         shift, and go to state 7
+    PLUSPLUS      shift, and go to state 8
+    MINUSMINUS    shift, and go to state 9
+    LPAREN        shift, and go to state 10
+    IDENTIFIER    shift, and go to state 27
+    INT_LITERAL   shift, and go to state 12
+    CHAR_LITERAL  shift, and go to state 13
+
+    UNARY_EXPR    go to state 34
+    POSTFIX_EXPR  go to state 25
+    PRIMARY       go to state 26
+
+
+State 9
+
+   42 UNARY_EXPR: MINUSMINUS . UNARY_EXPR
+
+    PLUS          shift, and go to state 6
+    MINUS         shift, and go to state 7
+    PLUSPLUS      shift, and go to state 8
+    MINUSMINUS    shift, and go to state 9
+    LPAREN        shift, and go to state 10
+    IDENTIFIER    shift, and go to state 27
+    INT_LITERAL   shift, and go to state 12
+    CHAR_LITERAL  shift, and go to state 13
+
+    UNARY_EXPR    go to state 35
+    POSTFIX_EXPR  go to state 25
+    PRIMARY       go to state 26
+
+
+State 10
+
+   52 PRIMARY: LPAREN . SIMPLE_EXPR RPAREN
+
+    PLUS          shift, and go to state 6
+    MINUS         shift, and go to state 7
+    PLUSPLUS      shift, and go to state 8
+    MINUSMINUS    shift, and go to state 9
+    LPAREN        shift, and go to state 10
+    IDENTIFIER    shift, and go to state 27
+    INT_LITERAL   shift, and go to state 12
+    CHAR_LITERAL  shift, and go to state 13
+
+    SIMPLE_EXPR   go to state 36
+    ADD_EXPR      go to state 22
+    MULT_EXPR     go to state 23
+    UNARY_EXPR    go to state 24
+    POSTFIX_EXPR  go to state 25
+    PRIMARY       go to state 26
+
+
+State 11
+
+   26 ASSIGNMENT: IDENTIFIER . ASSIGN_OP ASSIGNMENT
+   27           | IDENTIFIER . ASSIGN_OP SIMPLE_EXPR
+   49 PRIMARY: IDENTIFIER .
+
+    PLUS_EQUAL   shift, and go to state 37
+    MINUS_EQUAL  shift, and go to state 38
+    DIV_EQUAL    shift, and go to state 39
+    EQUAL        shift, and go to state 40
+
+    $default  reduce using rule 49 (PRIMARY)
+
+    ASSIGN_OP  go to state 41
+
+
+State 12
+
+   50 PRIMARY: INT_LITERAL .
+
+    $default  reduce using rule 50 (PRIMARY)
+
+
+State 13
+
+   51 PRIMARY: CHAR_LITERAL .
+
+    $default  reduce using rule 51 (PRIMARY)
+
+
+State 14
+
+    0 $accept: S . $end
+
+    $end  shift, and go to state 42
+
+
+State 15
+
+    1 S: STATEMENT_LIST .
+
+    $default  reduce using rule 1 (S)
+
+
+State 16
+
+    2 STATEMENT_LIST: STATEMENT . STATEMENT_LIST
+
+    KUAN          shift, and go to state 1
+    ENTEGER       shift, and go to state 2
+    CHAROT        shift, and go to state 3
+    PRENT         shift, and go to state 4
+    EXCLAM        shift, and go to state 5
+    PLUS          shift, and go to state 6
+    MINUS         shift, and go to state 7
+    PLUSPLUS      shift, and go to state 8
+    MINUSMINUS    shift, and go to state 9
+    LPAREN        shift, and go to state 10
+    IDENTIFIER    shift, and go to state 11
+    INT_LITERAL   shift, and go to state 12
+    CHAR_LITERAL  shift, and go to state 13
+
+    $default  reduce using rule 3 (STATEMENT_LIST)
+
+    STATEMENT_LIST  go to state 43
+    STATEMENT       go to state 16
+    PRINTING        go to state 17
+    DECLARATION     go to state 18
+    DATATYPE        go to state 19
+    ASSIGNMENT      go to state 20
+    SIMPLE_EXPR     go to state 21
+    ADD_EXPR        go to state 22
+    MULT_EXPR       go to state 23
+    UNARY_EXPR      go to state 24
+    POSTFIX_EXPR    go to state 25
+    PRIMARY         go to state 26
+
+
+State 17
+
+    7 STATEMENT: PRINTING . EXCLAM
+
+    EXCLAM  shift, and go to state 44
+
+
+State 18
+
+    4 STATEMENT: DECLARATION . EXCLAM
+
+    EXCLAM  shift, and go to state 45
+
+
+State 19
+
+   16 DECLARATION: DATATYPE . INIT_DECLARATOR_LIST
+
+    LPAREN      shift, and go to state 46
+    IDENTIFIER  shift, and go to state 47
+
+    INIT_DECLARATOR_LIST  go to state 48
+    INIT_DECLARATOR       go to state 49
+    DECLARATOR            go to state 50
+
+
+State 20
+
+    5 STATEMENT: ASSIGNMENT . EXCLAM
+
+    EXCLAM  shift, and go to state 51
+
+
+State 21
+
+    6 STATEMENT: SIMPLE_EXPR . EXCLAM
+
+    EXCLAM  shift, and go to state 52
+
+
+State 22
+
+   32 SIMPLE_EXPR: ADD_EXPR .
+   33 ADD_EXPR: ADD_EXPR . PLUS MULT_EXPR
+   34         | ADD_EXPR . MINUS MULT_EXPR
+
+    PLUS   shift, and go to state 53
+    MINUS  shift, and go to state 54
+
+    $default  reduce using rule 32 (SIMPLE_EXPR)
+
+
+State 23
+
+   35 ADD_EXPR: MULT_EXPR .
+   36 MULT_EXPR: MULT_EXPR . MUL UNARY_EXPR
+   37          | MULT_EXPR . DIV UNARY_EXPR
+
+    MUL  shift, and go to state 55
+    DIV  shift, and go to state 56
+
+    $default  reduce using rule 35 (ADD_EXPR)
+
+
+State 24
+
+   38 MULT_EXPR: UNARY_EXPR .
+
+    $default  reduce using rule 38 (MULT_EXPR)
+
+
+State 25
+
+   43 UNARY_EXPR: POSTFIX_EXPR .
+
+    $default  reduce using rule 43 (UNARY_EXPR)
+
+
+State 26
+
+   44 POSTFIX_EXPR: PRIMARY . POSTFIX_OPS
+
+    $default  reduce using rule 45 (POSTFIX_OPS)
+
+    POSTFIX_OPS  go to state 57
+
+
+State 27
+
+   49 PRIMARY: IDENTIFIER .
+
+    $default  reduce using rule 49 (PRIMARY)
+
+
+State 28
+
+   15 PRINT_ITEM: STRING_LITERAL .
+
+    $default  reduce using rule 15 (PRINT_ITEM)
+
+
+State 29
+
+    9 PRINTING: PRENT PRINT_LIST .
+
+    $default  reduce using rule 9 (PRINTING)
+
+
+State 30
+
+   10 PRINT_LIST: PRINT_ITEM . PRINT_LIST_PRIME
+
+    COMMA  shift, and go to state 58
+
+    $default  reduce using rule 13 (PRINT_LIST_PRIME)
+
+    PRINT_LIST_PRIME  go to state 59
+
+
+State 31
+
+   14 PRINT_ITEM: SIMPLE_EXPR .
+
+    $default  reduce using rule 14 (PRINT_ITEM)
+
+
+State 32
+
+   39 UNARY_EXPR: PLUS UNARY_EXPR .
+
+    $default  reduce using rule 39 (UNARY_EXPR)
+
+
+State 33
+
+   40 UNARY_EXPR: MINUS UNARY_EXPR .
+
+    $default  reduce using rule 40 (UNARY_EXPR)
+
+
+State 34
+
+   41 UNARY_EXPR: PLUSPLUS UNARY_EXPR .
+
+    $default  reduce using rule 41 (UNARY_EXPR)
+
+
+State 35
+
+   42 UNARY_EXPR: MINUSMINUS UNARY_EXPR .
+
+    $default  reduce using rule 42 (UNARY_EXPR)
+
+
+State 36
+
+   52 PRIMARY: LPAREN SIMPLE_EXPR . RPAREN
+
+    RPAREN  shift, and go to state 60
+
+
+State 37
+
+   29 ASSIGN_OP: PLUS_EQUAL .
+
+    $default  reduce using rule 29 (ASSIGN_OP)
+
+
+State 38
+
+   30 ASSIGN_OP: MINUS_EQUAL .
+
+    $default  reduce using rule 30 (ASSIGN_OP)
+
+
+State 39
+
+   31 ASSIGN_OP: DIV_EQUAL .
+
+    $default  reduce using rule 31 (ASSIGN_OP)
+
+
+State 40
+
+   28 ASSIGN_OP: EQUAL .
+
+    $default  reduce using rule 28 (ASSIGN_OP)
+
+
+State 41
+
+   26 ASSIGNMENT: IDENTIFIER ASSIGN_OP . ASSIGNMENT
+   27           | IDENTIFIER ASSIGN_OP . SIMPLE_EXPR
+
+    PLUS          shift, and go to state 6
+    MINUS         shift, and go to state 7
+    PLUSPLUS      shift, and go to state 8
+    MINUSMINUS    shift, and go to state 9
+    LPAREN        shift, and go to state 10
+    IDENTIFIER    shift, and go to state 11
+    INT_LITERAL   shift, and go to state 12
+    CHAR_LITERAL  shift, and go to state 13
+
+    ASSIGNMENT    go to state 61
+    SIMPLE_EXPR   go to state 62
+    ADD_EXPR      go to state 22
+    MULT_EXPR     go to state 23
+    UNARY_EXPR    go to state 24
+    POSTFIX_EXPR  go to state 25
+    PRIMARY       go to state 26
+
+
+State 42
+
+    0 $accept: S $end .
+
+    $default  accept
+
+
+State 43
+
+    2 STATEMENT_LIST: STATEMENT STATEMENT_LIST .
+
+    $default  reduce using rule 2 (STATEMENT_LIST)
+
+
+State 44
+
+    7 STATEMENT: PRINTING EXCLAM .
+
+    $default  reduce using rule 7 (STATEMENT)
+
+
+State 45
+
+    4 STATEMENT: DECLARATION EXCLAM .
+
+    $default  reduce using rule 4 (STATEMENT)
+
+
+State 46
+
+   25 DECLARATOR: LPAREN . DECLARATOR RPAREN
+
+    LPAREN      shift, and go to state 46
+    IDENTIFIER  shift, and go to state 47
+
+    DECLARATOR  go to state 63
+
+
+State 47
+
+   24 DECLARATOR: IDENTIFIER .
+
+    $default  reduce using rule 24 (DECLARATOR)
+
+
+State 48
+
+   16 DECLARATION: DATATYPE INIT_DECLARATOR_LIST .
+
+    $default  reduce using rule 16 (DECLARATION)
+
+
+State 49
+
+   20 INIT_DECLARATOR_LIST: INIT_DECLARATOR .
+   21                     | INIT_DECLARATOR . COMMA INIT_DECLARATOR_LIST
+
+    COMMA  shift, and go to state 64
+
+    $default  reduce using rule 20 (INIT_DECLARATOR_LIST)
+
+
+State 50
+
+   22 INIT_DECLARATOR: DECLARATOR .
+   23                | DECLARATOR . EQUAL SIMPLE_EXPR
+
+    EQUAL  shift, and go to state 65
+
+    $default  reduce using rule 22 (INIT_DECLARATOR)
+
+
+State 51
+
+    5 STATEMENT: ASSIGNMENT EXCLAM .
+
+    $default  reduce using rule 5 (STATEMENT)
+
+
+State 52
+
+    6 STATEMENT: SIMPLE_EXPR EXCLAM .
+
+    $default  reduce using rule 6 (STATEMENT)
+
+
+State 53
+
+   33 ADD_EXPR: ADD_EXPR PLUS . MULT_EXPR
+
+    PLUS          shift, and go to state 6
+    MINUS         shift, and go to state 7
+    PLUSPLUS      shift, and go to state 8
+    MINUSMINUS    shift, and go to state 9
+    LPAREN        shift, and go to state 10
+    IDENTIFIER    shift, and go to state 27
+    INT_LITERAL   shift, and go to state 12
+    CHAR_LITERAL  shift, and go to state 13
+
+    MULT_EXPR     go to state 66
+    UNARY_EXPR    go to state 24
+    POSTFIX_EXPR  go to state 25
+    PRIMARY       go to state 26
+
+
+State 54
+
+   34 ADD_EXPR: ADD_EXPR MINUS . MULT_EXPR
+
+    PLUS          shift, and go to state 6
+    MINUS         shift, and go to state 7
+    PLUSPLUS      shift, and go to state 8
+    MINUSMINUS    shift, and go to state 9
+    LPAREN        shift, and go to state 10
+    IDENTIFIER    shift, and go to state 27
+    INT_LITERAL   shift, and go to state 12
+    CHAR_LITERAL  shift, and go to state 13
+
+    MULT_EXPR     go to state 67
+    UNARY_EXPR    go to state 24
+    POSTFIX_EXPR  go to state 25
+    PRIMARY       go to state 26
+
+
+State 55
+
+   36 MULT_EXPR: MULT_EXPR MUL . UNARY_EXPR
+
+    PLUS          shift, and go to state 6
+    MINUS         shift, and go to state 7
+    PLUSPLUS      shift, and go to state 8
+    MINUSMINUS    shift, and go to state 9
+    LPAREN        shift, and go to state 10
+    IDENTIFIER    shift, and go to state 27
+    INT_LITERAL   shift, and go to state 12
+    CHAR_LITERAL  shift, and go to state 13
+
+    UNARY_EXPR    go to state 68
+    POSTFIX_EXPR  go to state 25
+    PRIMARY       go to state 26
+
+
+State 56
+
+   37 MULT_EXPR: MULT_EXPR DIV . UNARY_EXPR
+
+    PLUS          shift, and go to state 6
+    MINUS         shift, and go to state 7
+    PLUSPLUS      shift, and go to state 8
+    MINUSMINUS    shift, and go to state 9
+    LPAREN        shift, and go to state 10
+    IDENTIFIER    shift, and go to state 27
+    INT_LITERAL   shift, and go to state 12
+    CHAR_LITERAL  shift, and go to state 13
+
+    UNARY_EXPR    go to state 69
+    POSTFIX_EXPR  go to state 25
+    PRIMARY       go to state 26
+
+
+State 57
+
+   44 POSTFIX_EXPR: PRIMARY POSTFIX_OPS .
+   46 POSTFIX_OPS: POSTFIX_OPS . POSTFIX_OP
+
+    PLUSPLUS    shift, and go to state 70
+    MINUSMINUS  shift, and go to state 71
+
+    $default  reduce using rule 44 (POSTFIX_EXPR)
+
+    POSTFIX_OP  go to state 72
+
+
+State 58
+
+   12 PRINT_LIST_PRIME: COMMA . PRINT_ITEM PRINT_LIST_PRIME
+
+    PLUS            shift, and go to state 6
+    MINUS           shift, and go to state 7
+    PLUSPLUS        shift, and go to state 8
+    MINUSMINUS      shift, and go to state 9
+    LPAREN          shift, and go to state 10
+    IDENTIFIER      shift, and go to state 27
+    INT_LITERAL     shift, and go to state 12
+    CHAR_LITERAL    shift, and go to state 13
+    STRING_LITERAL  shift, and go to state 28
+
+    PRINT_ITEM    go to state 73
+    SIMPLE_EXPR   go to state 31
+    ADD_EXPR      go to state 22
+    MULT_EXPR     go to state 23
+    UNARY_EXPR    go to state 24
+    POSTFIX_EXPR  go to state 25
+    PRIMARY       go to state 26
+
+
+State 59
+
+   10 PRINT_LIST: PRINT_ITEM PRINT_LIST_PRIME .
+
+    $default  reduce using rule 10 (PRINT_LIST)
+
+
+State 60
+
+   52 PRIMARY: LPAREN SIMPLE_EXPR RPAREN .
+
+    $default  reduce using rule 52 (PRIMARY)
+
+
+State 61
+
+   26 ASSIGNMENT: IDENTIFIER ASSIGN_OP ASSIGNMENT .
+
+    $default  reduce using rule 26 (ASSIGNMENT)
+
+
+State 62
+
+   27 ASSIGNMENT: IDENTIFIER ASSIGN_OP SIMPLE_EXPR .
+
+    $default  reduce using rule 27 (ASSIGNMENT)
+
+
+State 63
+
+   25 DECLARATOR: LPAREN DECLARATOR . RPAREN
+
+    RPAREN  shift, and go to state 74
+
+
+State 64
+
+   21 INIT_DECLARATOR_LIST: INIT_DECLARATOR COMMA . INIT_DECLARATOR_LIST
+
+    LPAREN      shift, and go to state 46
+    IDENTIFIER  shift, and go to state 47
+
+    INIT_DECLARATOR_LIST  go to state 75
+    INIT_DECLARATOR       go to state 49
+    DECLARATOR            go to state 50
+
+
+State 65
+
+   23 INIT_DECLARATOR: DECLARATOR EQUAL . SIMPLE_EXPR
+
+    PLUS          shift, and go to state 6
+    MINUS         shift, and go to state 7
+    PLUSPLUS      shift, and go to state 8
+    MINUSMINUS    shift, and go to state 9
+    LPAREN        shift, and go to state 10
+    IDENTIFIER    shift, and go to state 27
+    INT_LITERAL   shift, and go to state 12
+    CHAR_LITERAL  shift, and go to state 13
+
+    SIMPLE_EXPR   go to state 76
+    ADD_EXPR      go to state 22
+    MULT_EXPR     go to state 23
+    UNARY_EXPR    go to state 24
+    POSTFIX_EXPR  go to state 25
+    PRIMARY       go to state 26
+
+
+State 66
+
+   33 ADD_EXPR: ADD_EXPR PLUS MULT_EXPR .
+   36 MULT_EXPR: MULT_EXPR . MUL UNARY_EXPR
+   37          | MULT_EXPR . DIV UNARY_EXPR
+
+    MUL  shift, and go to state 55
+    DIV  shift, and go to state 56
+
+    $default  reduce using rule 33 (ADD_EXPR)
+
+
+State 67
+
+   34 ADD_EXPR: ADD_EXPR MINUS MULT_EXPR .
+   36 MULT_EXPR: MULT_EXPR . MUL UNARY_EXPR
+   37          | MULT_EXPR . DIV UNARY_EXPR
+
+    MUL  shift, and go to state 55
+    DIV  shift, and go to state 56
+
+    $default  reduce using rule 34 (ADD_EXPR)
+
+
+State 68
+
+   36 MULT_EXPR: MULT_EXPR MUL UNARY_EXPR .
+
+    $default  reduce using rule 36 (MULT_EXPR)
+
+
+State 69
+
+   37 MULT_EXPR: MULT_EXPR DIV UNARY_EXPR .
+
+    $default  reduce using rule 37 (MULT_EXPR)
+
+
+State 70
+
+   47 POSTFIX_OP: PLUSPLUS .
+
+    $default  reduce using rule 47 (POSTFIX_OP)
+
+
+State 71
+
+   48 POSTFIX_OP: MINUSMINUS .
+
+    $default  reduce using rule 48 (POSTFIX_OP)
+
+
+State 72
+
+   46 POSTFIX_OPS: POSTFIX_OPS POSTFIX_OP .
+
+    $default  reduce using rule 46 (POSTFIX_OPS)
+
+
+State 73
+
+   12 PRINT_LIST_PRIME: COMMA PRINT_ITEM . PRINT_LIST_PRIME
+
+    COMMA  shift, and go to state 58
+
+    $default  reduce using rule 13 (PRINT_LIST_PRIME)
+
+    PRINT_LIST_PRIME  go to state 77
+
+
+State 74
+
+   25 DECLARATOR: LPAREN DECLARATOR RPAREN .
+
+    $default  reduce using rule 25 (DECLARATOR)
+
+
+State 75
+
+   21 INIT_DECLARATOR_LIST: INIT_DECLARATOR COMMA INIT_DECLARATOR_LIST .
+
+    $default  reduce using rule 21 (INIT_DECLARATOR_LIST)
+
+
+State 76
+
+   23 INIT_DECLARATOR: DECLARATOR EQUAL SIMPLE_EXPR .
+
+    $default  reduce using rule 23 (INIT_DECLARATOR)
+
+
+State 77
+
+   12 PRINT_LIST_PRIME: COMMA PRINT_ITEM PRINT_LIST_PRIME .
+
+    $default  reduce using rule 12 (PRINT_LIST_PRIME)

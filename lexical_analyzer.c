@@ -16,7 +16,7 @@ int is_operator_char(char c)
 
 int is_delimiter(char c)
 {
-    return (c == ';' || c == ',');
+    return (c == '!' || c == ',');
 }
 
 void add_to_tokens(const char *lexeme, TokenType token_type)

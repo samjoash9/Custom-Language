@@ -1,0 +1,22 @@
+ENTEGER a = 1!
+
+ENTEGER a!
+
+CHAROT a!
+
+CHAROT a = 'a'!
+
+ENTEGER ((((a))))! 
+
+ENTEGER (a) = 1!
+
+ENTEGER (((a))) = 1!
+
+CHAROT (((((b)))))!
+
+CHAROT ((((b)))) = 'a'!
+
+ENTEGER a = 1!
+ENTEGER a = ++a + a++!
+
+ENTEGER a = (1 + 2) / (3 * 2)!

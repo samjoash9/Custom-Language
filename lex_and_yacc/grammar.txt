@@ -1,0 +1,87 @@
+S → STATEMENT_LIST
+
+STATEMENT_LIST → STATEMENT STATEMENT_LIST | ε
+
+STATEMENT → DECLARATION '!'
+          | ASSIGNMENT '!'
+          | EXPRESSION '!'
+          | PRINTING '!'
+
+----------------------------------------------------
+PRINTING → PRENT PRINT_LIST
+
+PRINT_LIST → PRINT_ITEM PRINT_LIST_PRIME | ε
+
+PRINT_LIST_PRIME → ',' PRINT_ITEM PRINT_LIST_PRIME | ε
+
+PRINT_ITEM → EXPRESSION
+           | STRING_LITERAL
+
+----------------------------------------------------
+DECLARATION → DATATYPE INIT_DECLARATOR_LIST
+
+INIT_DECLARATOR_LIST → INIT_DECLARATOR
+                      | INIT_DECLARATOR ',' INIT_DECLARATOR_LIST
+
+INIT_DECLARATOR → DECLARATOR
+                 | DECLARATOR '=' EXPRESSION
+
+DECLARATOR → IDENTIFIER
+            | '(' DECLARATOR ')'
+
+DATATYPE → CHAROT
+          | ENTEGER
+          | KUAN
+
+----------------------------------------------------
+ASSIGNMENT → ASSIGN_EXPR
+
+ASSIGN_EXPR → IDENTIFIER ASSIGN_OP ASSIGN_EXPR
+             | ADD_EXPR
+
+ASSIGN_OP → '='
+           | '+='
+           | '-='
+           | '/='
+
+----------------------------------------------------
+ADD_EXPR → MULT_EXPR ADD_EXPR_PRIME
+
+ADD_EXPR_PRIME → '+' MULT_EXPR ADD_EXPR_PRIME
+                | '-' MULT_EXPR ADD_EXPR_PRIME
+                | ε
+
+----------------------------------------------------
+MULT_EXPR → UNARY_EXPR MULT_EXPR_PRIME
+
+MULT_EXPR_PRIME → '*' UNARY_EXPR MULT_EXPR_PRIME
+                 | '/' UNARY_EXPR MULT_EXPR_PRIME
+                 | ε
+
+----------------------------------------------------
+UNARY_EXPR → UNARY_OP UNARY_EXPR
+            | POSTFIX_EXPR
+
+UNARY_OP → '+'
+         | '-'
+         | '++'
+         | '--'
+
+----------------------------------------------------
+POSTFIX_EXPR → PRIMARY POSTFIX_EXPR_PRIME
+
+POSTFIX_EXPR_PRIME → POSTFIX_OP POSTFIX_EXPR_PRIME
+                     | ε
+
+POSTFIX_OP → '++'
+           | '--'
+
+----------------------------------------------------
+PRIMARY → IDENTIFIER
+        | INT_LITERAL
+        | CHAR_LITERAL
+        | STRING_LITERAL
+        | '(' EXPRESSION ')'
+
+----------------------------------------------------
+EXPRESSION → ASSIGNMENT
