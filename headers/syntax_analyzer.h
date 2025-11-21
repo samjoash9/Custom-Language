@@ -19,6 +19,8 @@ typedef enum
     NODE_STATEMENT,
     NODE_DECLARATION,
     NODE_ASSIGNMENT,
+    NODE_PRINTING,
+    NODE_PRINT_ITEM,
     NODE_EXPRESSION,
     NODE_TERM,
     NODE_FACTOR,
@@ -51,9 +53,14 @@ ASTNode *parse_statement_list();
 ASTNode *parse_statement();
 ASTNode *parse_declaration();
 ASTNode *parse_assignment();
+ASTNode *parse_expression();
 ASTNode *parse_additive();
 ASTNode *parse_term();
 ASTNode *parse_factor();
-ASTNode *parse_expression();
+
+/* Additional helpers used by the implementation */
+char *parse_declarator();
+ASTNode *parse_primary();
+ASTNode *parse_printing();
 
 #endif

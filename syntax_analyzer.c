@@ -1,459 +1,560 @@
+/* ======================================================================
+   syntax_analyzer.c  (Corrected to perfectly follow your grammar)
+   ====================================================================== */
+
 #include "headers/syntax_analyzer.h"
 
-// === GLOBALS FROM LEXICAL ANALYZER ===
+extern TOKEN tokens[];
+extern int token_count;
+
 int current_token = 0;
 int syntax_error = 0;
+
 ASTNode *syntax_tree = NULL;
 
-// === UTILITY FUNCTIONS ===
-// Looks at the current token without consuming it.
+/* --------------------------------------------------------------
+   TOKEN HELPERS
+   -------------------------------------------------------------- */
+
 TOKEN *peek()
 {
     if (current_token < token_count)
         return &tokens[current_token];
-
     return NULL;
 }
 
-// Moves to the next token (consumes one).
 TOKEN *consume()
 {
     if (current_token < token_count)
         return &tokens[current_token++];
-
     return NULL;
 }
 
-// If current token matches the given string, consume it and return 1; otherwise 0.
-int match(const char *lexeme)
+int match_lex(const char *lex)
 {
-    TOKEN *tok = peek();
-
-    if (tok && strcmp(tok->lexeme, lexeme) == 0)
+    TOKEN *t = peek();
+    if (t && strcmp(t->lexeme, lex) == 0)
     {
         consume();
         return 1;
     }
-
     return 0;
 }
 
-// Prints a syntax error and sets syntax_error = 1.
-void error(const char *message)
+int match_type(int type)
 {
-    if (!syntax_error) // avoid spamming same error
+    TOKEN *t = peek();
+    if (t && t->type == type)
     {
-        printf("Syntax Error: %s (near token '%s')\n",
-               message,
-               current_token < token_count ? tokens[current_token].lexeme : "EOF");
+        consume();
+        return 1;
+    }
+    return 0;
+}
+
+void error(const char *msg)
+{
+    if (!syntax_error)
+    {
+        TOKEN *t = peek();
+        printf("Syntax Error: %s (near '%s')\n",
+               msg, t ? t->lexeme : "EOF");
     }
     syntax_error = 1;
 }
 
-// === AST CREATION ===
-ASTNode *create_node(NodeType type, const char *value, ASTNode *left, ASTNode *right)
+void print_indent(int level)
 {
-    if (syntax_error)
-        return NULL; // stop creating nodes if syntax already failed
-
-    ASTNode *node = malloc(sizeof(ASTNode));
-    if (!node)
-    {
-        error("Memory allocation failed while creating AST node");
-        return NULL;
-    }
-
-    node->type = type;
-    node->left = left;
-    node->right = right;
-
-    if (value)
-    {
-        node->value = strdup(value);
-        if (!node->value)
-        {
-            error("Memory allocation failed while duplicating node value");
-            free(node);
-            return NULL;
-        }
-    }
-    else
-    {
-        node->value = strdup("");
-        if (!node->value)
-        {
-            error("Memory allocation failed while duplicating empty node value");
-            free(node);
-            return NULL;
-        }
-    }
-
-    return node;
+    for (int i = 0; i < level; i++)
+        printf("  ");
 }
 
-// === PROGRAM ===
-// S → STATEMENT_LIST
+void print_ast(ASTNode *node, int level)
+{
+    if (!node)
+        return;
+
+    print_indent(level);
+    printf("(%d) %s\n", node->type, node->value ? node->value : "NULL");
+
+    if (node->left)
+        print_ast(node->left, level + 1);
+
+    if (node->right)
+        print_ast(node->right, level + 1);
+}
+
+/* --------------------------------------------------------------
+   AST NODE CREATION
+   -------------------------------------------------------------- */
+
+ASTNode *new_node(NodeType type, const char *val, ASTNode *l, ASTNode *r)
+{
+    ASTNode *n = malloc(sizeof(ASTNode));
+    n->type = type;
+    n->left = l;
+    n->right = r;
+    n->value = strdup(val ? val : "");
+    return n;
+}
+
+/* --------------------------------------------------------------
+   FORWARD DECLARATIONS
+   -------------------------------------------------------------- */
+
+ASTNode *parse_program();
+ASTNode *parse_statement_list();
+ASTNode *parse_statement();
+ASTNode *parse_printing();
+ASTNode *parse_print_list();
+ASTNode *parse_print_list_prime(ASTNode *left_head);
+ASTNode *parse_print_item();
+
+ASTNode *parse_declaration();
+char *parse_declarator();
+ASTNode *parse_init_declarator_list();
+
+ASTNode *parse_assignment();
+ASTNode *parse_simple_expr();
+ASTNode *parse_add_expr();
+ASTNode *parse_term();
+ASTNode *parse_factor();
+ASTNode *parse_unary();
+ASTNode *parse_postfix();
+ASTNode *parse_primary();
+
+/* --------------------------------------------------------------
+   <program> ::= <statement_list>
+   -------------------------------------------------------------- */
+
 ASTNode *parse_program()
 {
-    if (syntax_error)
-        return NULL;
-    return create_node(NODE_START, "START", parse_statement_list(), NULL);
+    return new_node(NODE_START, "START", parse_statement_list(), NULL);
 }
 
-// === STATEMENT LIST ===
-// STATEMENT_LIST → STATEMENT STATEMENT_LIST | ε
+/* --------------------------------------------------------------
+   <statement_list> ::= <statement> <statement_list> | ε
+   -------------------------------------------------------------- */
+
+int is_statement_start(int type)
+{
+    return (type == ENTEGER || type == CHAROT || type == KUAN ||
+            type == PRENT ||
+            type == IDENTIFIER ||
+            type == LPAREN ||
+            type == EXCLAM ||
+            type == INT_LITERAL || type == CHAR_LITERAL);
+}
+
 ASTNode *parse_statement_list()
 {
-    ASTNode *head = NULL;
-    ASTNode *tail = NULL;
+    TOKEN *t = peek();
+    if (!t || !is_statement_start(t->type))
+        return NULL; // epsilon
 
-    while (!syntax_error)
-    {
-        TOKEN *tok = peek();
-        if (!tok)
-            break;
+    ASTNode *st = parse_statement();
+    ASTNode *rest = parse_statement_list(); // recursion OK (no infinite loop because t must change)
 
-        if (!(tok->type == TOK_DATATYPE ||
-              tok->type == TOK_IDENTIFIER ||
-              tok->type == TOK_INT_LITERAL ||
-              tok->type == TOK_CHAR_LITERAL ||
-              (tok->type == TOK_PARENTHESIS && strcmp(tok->lexeme, "(") == 0) ||
-              (tok->type == TOK_OPERATOR &&
-               (strcmp(tok->lexeme, "+") == 0 || strcmp(tok->lexeme, "-") == 0 ||
-                strcmp(tok->lexeme, "++") == 0 || strcmp(tok->lexeme, "--") == 0))))
-        {
-            break;
-        }
-
-        ASTNode *stmt = parse_statement();
-        if (!stmt)
-            break;
-
-        ASTNode *stmt_list_node = create_node(NODE_STATEMENT_LIST, "STATEMENT_LIST", stmt, NULL);
-        if (!stmt_list_node)
-            return head;
-
-        if (!head)
-            head = tail = stmt_list_node;
-        else
-        {
-            tail->right = stmt_list_node;
-            tail = stmt_list_node;
-        }
-    }
-
-    return head;
+    return new_node(NODE_STATEMENT_LIST, "STMT_LIST", st, rest);
 }
 
-// === STATEMENT ===
+/* --------------------------------------------------------------
+   <statement> ::= <declaration> "!"
+                 | <assignment> "!"
+                 | <simple_expr> "!"
+                 | <printing> "!"
+                 | "!"
+   -------------------------------------------------------------- */
+
 ASTNode *parse_statement()
 {
-    if (syntax_error)
+    TOKEN *t = peek();
+    if (!t)
         return NULL;
 
-    TOKEN *tok = peek();
-    if (!tok)
-        return NULL;
+    ASTNode *node = NULL;
 
-    ASTNode *stmt_node = NULL;
-
-    if (tok->type == TOK_DATATYPE)
+    if (t->type == ENTEGER || t->type == CHAROT || t->type == KUAN)
     {
-        stmt_node = parse_declaration();
+        node = parse_declaration();
     }
-    else if (tok->type == TOK_IDENTIFIER)
+    else if (t->type == PRENT)
     {
-        TOKEN *next = (current_token + 1 < token_count) ? &tokens[current_token + 1] : NULL;
+        node = parse_printing();
+    }
+    else if (t->type == IDENTIFIER)
+    {
+        /* Check ahead for assign_op */
+        TOKEN *nxt = (current_token + 1 < token_count)
+                         ? &tokens[current_token + 1]
+                         : NULL;
 
-        if (next && next->type == TOK_OPERATOR &&
-            (strcmp(next->lexeme, "=") == 0 || strcmp(next->lexeme, "+=") == 0 ||
-             strcmp(next->lexeme, "-=") == 0 || strcmp(next->lexeme, "*=") == 0 ||
-             strcmp(next->lexeme, "/=") == 0))
-        {
-            stmt_node = parse_assignment();
-        }
+        if (nxt && (nxt->type == EQUAL || nxt->type == PLUS_EQUAL ||
+                    nxt->type == MINUS_EQUAL || nxt->type == MUL_EQUAL ||
+                    nxt->type == DIV_EQUAL))
+            node = parse_assignment();
         else
-        {
-            stmt_node = parse_expression();
-        }
+            node = parse_simple_expr();
+    }
+    else if (t->type == EXCLAM)
+    {
+        consume();
+        return new_node(NODE_STATEMENT, "EMPTY!", NULL, NULL);
     }
     else
     {
-        stmt_node = parse_expression();
+        node = parse_simple_expr();
     }
 
-    if (!match(";"))
-        error("Missing ';' after statement");
+    if (!match_lex("!"))
+        error("Missing '!' after statement");
 
-    return create_node(NODE_STATEMENT, "STATEMENT", stmt_node, NULL);
+    return new_node(NODE_STATEMENT, "STATEMENT", node, NULL);
 }
 
-// === DECLARATION ===
-char *parse_declarator()
+/* --------------------------------------------------------------
+   PRINTING
+   -------------------------------------------------------------- */
+
+ASTNode *parse_printing()
 {
-    TOKEN *tok = peek();
-    if (!tok)
+    if (!match_type(PRENT))
     {
-        error("Unexpected end of declarator");
+        error("Expected PRENT");
         return NULL;
     }
 
-    if (tok->type == TOK_IDENTIFIER)
-    {
-        char *name = strdup(tok->lexeme);
-        consume();
-        return name;
-    }
-
-    if (tok->type == TOK_PARENTHESIS && strcmp(tok->lexeme, "(") == 0)
-    {
-        consume();
-        char *inner = parse_declarator();
-        if (!match(")"))
-            error("Missing ')' in declarator");
-        return inner;
-    }
-
-    error("Expected identifier or '(' in declarator");
-    return NULL;
+    ASTNode *list = parse_print_list();
+    return new_node(NODE_PRINTING, "PRINT", list, NULL);
 }
+
+ASTNode *parse_print_list()
+{
+    TOKEN *t = peek();
+    if (!t || t->type == EXCLAM)
+        return NULL; // ε
+
+    ASTNode *item = parse_print_item();
+    return parse_print_list_prime(item);
+}
+
+ASTNode *parse_print_list_prime(ASTNode *left_head)
+{
+    if (match_lex(","))
+    {
+        ASTNode *itm = parse_print_item();
+        ASTNode *rest = parse_print_list_prime(itm);
+        return new_node(NODE_PRINT_ITEM, "PRINT_ITEM", left_head, rest);
+    }
+    return left_head; // ε
+}
+
+ASTNode *parse_print_item()
+{
+    TOKEN *t = peek();
+    if (t->type == STRING_LITERAL)
+    {
+        TOKEN lit = *consume();
+        return new_node(NODE_PRINT_ITEM, lit.lexeme, NULL, NULL);
+    }
+    return parse_simple_expr();
+}
+
+/* --------------------------------------------------------------
+   DECLARATION
+   -------------------------------------------------------------- */
 
 ASTNode *parse_declaration()
 {
-    TOKEN *datatype = consume();
-    ASTNode *decl_list = NULL;
-    ASTNode *last = NULL;
-
-    while (!syntax_error)
+    TOKEN *dt = consume();
+    if (!dt)
     {
-        TOKEN *tok = peek();
-        if (!tok)
-        {
-            error("Unexpected end of declaration");
-            break;
-        }
-
-        char *identifier_name = parse_declarator();
-        if (!identifier_name)
-            break;
-
-        ASTNode *rhs_node = NULL;
-        int initialized = 0;
-        char literal_value[MAX_VALUE_LEN] = "";
-
-        if (match("="))
-        {
-            rhs_node = parse_expression();
-            initialized = 1;
-        }
-
-        int as_res = add_symbol(identifier_name, datatype->lexeme, literal_value, initialized);
-
-        if (as_res == 0)
-        {
-            syntax_error = 1;
-            free(identifier_name);
-            break;
-        }
-
-        ASTNode *decl_node = create_node(NODE_DECLARATION, identifier_name, rhs_node, NULL);
-        if (!decl_list)
-            decl_list = decl_node;
-        else
-            last->right = decl_node;
-
-        last = decl_node;
-
-        free(identifier_name);
-
-        if (!match(","))
-            break;
+        error("Expected datatype");
+        return NULL;
     }
 
-    return create_node(NODE_DECLARATION, datatype->lexeme, decl_list, NULL);
+    ASTNode *decls = parse_init_declarator_list();
+    return new_node(NODE_DECLARATION, dt->lexeme, decls, NULL);
 }
 
-// === ASSIGNMENT ===
-ASTNode *parse_assignment()
+ASTNode *parse_init_declarator_list()
 {
-    TOKEN *tok = peek();
-    if (!tok)
+    char *name = parse_declarator();
+    if (!name)
         return NULL;
 
-    int save_index = current_token;
+    ASTNode *rhs = NULL;
 
-    if (tok->type == TOK_IDENTIFIER)
+    if (match_lex("="))
     {
-        TOKEN id_tok = *consume();
-        TOKEN *op = peek();
+        rhs = parse_simple_expr();
+    }
 
-        if (op && op->type == TOK_OPERATOR &&
-            (strcmp(op->lexeme, "=") == 0 || strcmp(op->lexeme, "+=") == 0 ||
-             strcmp(op->lexeme, "-=") == 0 || strcmp(op->lexeme, "*=") == 0 ||
-             strcmp(op->lexeme, "/=") == 0))
+    ASTNode *decl = new_node(NODE_DECLARATION, name, rhs, NULL);
+    free(name);
+
+    if (match_lex(","))
+    {
+        ASTNode *rest = parse_init_declarator_list();
+        return new_node(NODE_DECLARATION, "DECL", decl, rest);
+    }
+
+    return decl;
+}
+
+char *parse_declarator()
+{
+    TOKEN *t = peek();
+    if (!t)
+        return NULL;
+
+    if (match_type(IDENTIFIER))
+    {
+        return strdup(tokens[current_token - 1].lexeme);
+    }
+
+    if (match_lex("("))
+    {
+        char *inner = parse_declarator();
+        if (!match_lex(")"))
+            error("Missing ')'");
+        return inner;
+    }
+
+    error("Invalid declarator");
+    return NULL;
+}
+
+/* --------------------------------------------------------------
+   ASSIGNMENT
+   -------------------------------------------------------------- */
+
+ASTNode *parse_assignment()
+{
+    if (!match_type(IDENTIFIER))
+        return NULL;
+    TOKEN idt = tokens[current_token - 1];
+
+    TOKEN *op = peek();
+    if (!op ||
+        !(op->type == EQUAL || op->type == PLUS_EQUAL ||
+          op->type == MINUS_EQUAL || op->type == MUL_EQUAL ||
+          op->type == DIV_EQUAL))
+    {
+        error("Expected assignment operator");
+        return NULL;
+    }
+
+    TOKEN opt = *consume();
+
+    /* two productions:
+         id op assignment
+         id op simple_expr
+    */
+
+    TOKEN *nxt = peek();
+    ASTNode *rhs;
+
+    if (nxt && nxt->type == IDENTIFIER)
+    {
+        /* look ahead further to distinguish assign vs expr */
+        TOKEN *nxt2 = (current_token + 1 < token_count)
+                          ? &tokens[current_token + 1]
+                          : NULL;
+
+        if (nxt2 && (nxt2->type == EQUAL || nxt2->type == PLUS_EQUAL ||
+                     nxt2->type == MINUS_EQUAL || nxt2->type == MUL_EQUAL ||
+                     nxt2->type == DIV_EQUAL))
         {
-            TOKEN op_tok = *consume();
-            ASTNode *lhs_node = create_node(NODE_FACTOR, id_tok.lexeme, NULL, NULL);
-            ASTNode *rhs_node = NULL;
-
-            TOKEN *next = peek();
-            if (next && next->type == TOK_IDENTIFIER)
-            {
-                rhs_node = parse_assignment();
-                if (!rhs_node)
-                    rhs_node = parse_additive();
-            }
-            else
-            {
-                rhs_node = parse_additive();
-            }
-
-            return create_node(NODE_ASSIGNMENT, op_tok.lexeme, lhs_node, rhs_node);
+            rhs = parse_assignment();
         }
         else
         {
-            current_token = save_index;
-            return parse_additive();
+            rhs = parse_simple_expr();
         }
     }
+    else
+    {
+        rhs = parse_simple_expr();
+    }
 
-    return parse_additive();
+    ASTNode *lhs = new_node(NODE_FACTOR, idt.lexeme, NULL, NULL);
+    return new_node(NODE_ASSIGNMENT, opt.lexeme, lhs, rhs);
 }
 
-// === EXPRESSIONS ===
-ASTNode *parse_expression() { return parse_assignment(); }
+/* --------------------------------------------------------------
+   SIMPLE EXPR
+   -------------------------------------------------------------- */
 
-ASTNode *parse_additive()
+ASTNode *parse_simple_expr()
+{
+    return parse_add_expr();
+}
+
+/* --------------------------------------------------------------
+   ADD_EXPR (no left recursion)
+   -------------------------------------------------------------- */
+
+ASTNode *parse_add_expr()
 {
     ASTNode *node = parse_term();
-    TOKEN *tok = peek();
 
-    while (tok && tok->type == TOK_OPERATOR &&
-           (strcmp(tok->lexeme, "+") == 0 || strcmp(tok->lexeme, "-") == 0))
+    while (1)
     {
-        TOKEN op = *consume();
-        ASTNode *right = parse_term();
-        node = create_node(NODE_EXPRESSION, op.lexeme, node, right);
-        tok = peek();
+        TOKEN *t = peek();
+        if (!t)
+            break;
+        if (t->type == PLUS || t->type == MINUS)
+        {
+            TOKEN op = *consume();
+            ASTNode *right = parse_term();
+            node = new_node(NODE_EXPRESSION, op.lexeme, node, right);
+        }
+        else
+            break;
     }
     return node;
 }
+
+/* --------------------------------------------------------------
+   TERM
+   -------------------------------------------------------------- */
 
 ASTNode *parse_term()
 {
     ASTNode *node = parse_factor();
-    TOKEN *tok = peek();
 
-    while (tok && tok->type == TOK_OPERATOR &&
-           (strcmp(tok->lexeme, "*") == 0 || strcmp(tok->lexeme, "/") == 0))
+    while (1)
     {
-        TOKEN op = *consume();
-        ASTNode *right = parse_factor();
-        node = create_node(NODE_TERM, op.lexeme, node, right);
-        tok = peek();
+        TOKEN *t = peek();
+        if (!t)
+            break;
+        if (t->type == MUL || t->type == DIV)
+        {
+            TOKEN op = *consume();
+            ASTNode *right = parse_factor();
+            node = new_node(NODE_TERM, op.lexeme, node, right);
+        }
+        else
+            break;
     }
     return node;
 }
+
+/* --------------------------------------------------------------
+   FACTOR
+   -------------------------------------------------------------- */
 
 ASTNode *parse_factor()
 {
-    TOKEN *tok = peek();
-    if (!tok)
+    TOKEN *t = peek();
+    if (!t)
         return NULL;
 
-    if (tok->type == TOK_OPERATOR &&
-        (strcmp(tok->lexeme, "+") == 0 || strcmp(tok->lexeme, "-") == 0 ||
-         strcmp(tok->lexeme, "++") == 0 || strcmp(tok->lexeme, "--") == 0))
+    /* unary */
+    if (t->type == PLUS || t->type == MINUS)
+        return parse_unary();
+
+    if (t->type == PLUSPLUS || t->type == MINUSMINUS)
+        return parse_unary();
+
+    /* postfix */
+    return parse_postfix();
+}
+
+/* --------------------------------------------------------------
+   UNARY
+   -------------------------------------------------------------- */
+
+ASTNode *parse_unary()
+{
+    TOKEN *t = consume();
+
+    ASTNode *right = NULL;
+
+    if (t->type == PLUS || t->type == MINUS)
     {
-        TOKEN op_token = *consume();
-        ASTNode *factor_node = parse_factor();
-        return create_node(NODE_UNARY_OP, op_token.lexeme, factor_node, NULL);
+        right = parse_factor();
+        return new_node(NODE_UNARY_OP, t->lexeme, right, NULL);
     }
 
-    ASTNode *node = NULL;
-
-    if (tok->type == TOK_PARENTHESIS && strcmp(tok->lexeme, "(") == 0)
+    if (t->type == PLUSPLUS || t->type == MINUSMINUS)
     {
-        consume();
-        node = parse_expression();
-        if (!match(")"))
+        ASTNode *post = parse_postfix();
+        return new_node(NODE_UNARY_OP, t->lexeme, post, NULL);
+    }
+
+    error("Invalid unary operator");
+    return NULL;
+}
+
+/* --------------------------------------------------------------
+   POSTFIX
+   -------------------------------------------------------------- */
+
+ASTNode *parse_postfix()
+{
+    ASTNode *p = parse_primary();
+    if (!p)
+        return NULL;
+
+    TOKEN *t = peek();
+    if (t && (t->type == PLUSPLUS || t->type == MINUSMINUS))
+    {
+        TOKEN op = *consume();
+        return new_node(NODE_POSTFIX_OP, op.lexeme, p, NULL);
+    }
+    return p;
+}
+
+/* --------------------------------------------------------------
+   PRIMARY
+   -------------------------------------------------------------- */
+
+ASTNode *parse_primary()
+{
+    TOKEN *t = peek();
+    if (!t)
+        return NULL;
+
+    if (match_lex("("))
+    {
+        ASTNode *x = parse_simple_expr();
+        if (!match_lex(")"))
             error("Missing ')'");
-    }
-    else if (tok->type == TOK_IDENTIFIER || tok->type == TOK_INT_LITERAL || tok->type == TOK_CHAR_LITERAL)
-    {
-        TOKEN literal = *consume();
-        node = create_node(NODE_FACTOR, literal.lexeme, NULL, NULL);
-    }
-    else
-    {
-        error("Unexpected token in factor");
-        consume();
-        return NULL;
+        return x;
     }
 
-    tok = peek();
-    while (tok && tok->type == TOK_OPERATOR &&
-           (strcmp(tok->lexeme, "++") == 0 || strcmp(tok->lexeme, "--") == 0))
+    if (match_type(IDENTIFIER) ||
+        match_type(INT_LITERAL) ||
+        match_type(CHAR_LITERAL))
     {
-        TOKEN op_token = *consume();
-        node = create_node(NODE_POSTFIX_OP, op_token.lexeme, node, NULL);
-        tok = peek();
+        TOKEN lit = tokens[current_token - 1];
+        return new_node(NODE_FACTOR, lit.lexeme, NULL, NULL);
     }
 
-    return node;
+    error("Invalid primary");
+    consume();
+    return NULL;
 }
 
-// === AST PRINTER & CLEANUP ===
-void print_ast(ASTNode *node, int depth)
-{
-    if (!node)
-        return;
+/* --------------------------------------------------------------
+   ENTRY POINT
+   -------------------------------------------------------------- */
 
-    for (int i = 0; i < depth; i++)
-        printf("  ");
-
-    const char *type_str =
-        node->type == NODE_START ? "START" : node->type == NODE_STATEMENT_LIST ? "STMT_LIST"
-                                         : node->type == NODE_STATEMENT        ? "STMT"
-                                         : node->type == NODE_DECLARATION      ? "DECL"
-                                         : node->type == NODE_ASSIGNMENT       ? "ASSIGN"
-                                         : node->type == NODE_EXPRESSION       ? "EXPR"
-                                         : node->type == NODE_TERM             ? "TERM"
-                                         : node->type == NODE_UNARY_OP         ? "UNARY_OP"
-                                         : node->type == NODE_POSTFIX_OP       ? "POSTFIX_OP"
-                                                                               : "FACTOR";
-
-    printf("(%s: %s)\n", type_str, node->value ? node->value : "(null)");
-
-    print_ast(node->left, depth + 1);
-    print_ast(node->right, depth + 1);
-}
-
-void free_ast(ASTNode *node)
-{
-    if (!node)
-        return;
-    free_ast(node->left);
-    free_ast(node->right);
-    if (node->value)
-        free(node->value);
-    free(node);
-}
-
-// === ENTRY POINT ===
 int syntax_analyzer()
 {
     current_token = 0;
     syntax_error = 0;
 
     syntax_tree = parse_program();
+
     print_ast(syntax_tree, 0);
 
-    if (syntax_error == 0 && current_token == token_count)
+    if (!syntax_error && current_token == token_count)
         printf("\nSyntax Accepted!\n");
     else
-        printf("\nSyntax Rejected (Error found)\n");
+        printf("\nSyntax Rejected.\n");
 
-    printf("===== SYNTAX ANALYSIS END =====\n\n");
     return syntax_error;
 }
