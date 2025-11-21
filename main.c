@@ -11,6 +11,9 @@
 #include "headers/target_code_generator.h"
 #include "headers/machine_code_generator.h"
 
+// lex and yacc api
+#include "lex_and_yacc/api.h"
+
 int main()
 {
     // === STEP 0: READ SOURCE CODE ===
@@ -37,6 +40,13 @@ int main()
     source_code[bytesRead] = '\0';
     fclose(fp);
 
+    // STEP 0.5: ENTER LEX AND YACC API
+    if (compile_input("input.txt") > 0)
+    {
+        printf("Error in lex and yacc.\n");
+        return 0;
+    }
+
     // === STEP 1: LEXICAL ANALYSIS ===
     if (lexer(source_code))
     {
@@ -55,29 +65,29 @@ int main()
         return 0;
     }
 
-    // === STEP 3: SEMANTIC ANALYSIS ===
-    printf("====== SEMANTIC ANALYZER ======\n");
-    int semantic_status = semantic_analyzer();
-    if (semantic_status != 0)
-    {
-        printf("\nCompilation aborted due to semantic error.\n");
-        free(source_code);
-        return 0;
-    }
-    printf("====== SEMANTIC ANALYZER END ======\n\n");
+    // // === STEP 3: SEMANTIC ANALYSIS ===
+    // printf("====== SEMANTIC ANALYZER ======\n");
+    // int semantic_status = semantic_analyzer();
+    // if (semantic_status != 0)
+    // {
+    //     printf("\nCompilation aborted due to semantic error.\n");
+    //     free(source_code);
+    //     return 0;
+    // }
+    // printf("====== SEMANTIC ANALYZER END ======\n\n");
 
-    // === STEP 4: INTERMEDIATE CODE GENERATION ===
-    generate_intermediate_code(syntax_tree);
+    // // === STEP 4: INTERMEDIATE CODE GENERATION ===
+    // generate_intermediate_code(syntax_tree);
 
-    // === STEP 5: TARGET CODE (MIPS64) ===
-    generate_target_code();
+    // // === STEP 5: TARGET CODE (MIPS64) ===
+    // generate_target_code();
 
-    // === STEP 6: MACHINE CODE GENERATION ===
-    generate_machine_code();
+    // // === STEP 6: MACHINE CODE GENERATION ===
+    // generate_machine_code();
 
-    // === SYMBOL TABLE ===
-    printf("\n===== SYMBOL TABLE (AFTER ANALYSIS) =====\n");
-    display_symbol_table();
+    // // === SYMBOL TABLE ===
+    // printf("\n===== SYMBOL TABLE (AFTER ANALYSIS) =====\n");
+    // display_symbol_table();
 
     // === CLEANUP ===
     free(source_code);

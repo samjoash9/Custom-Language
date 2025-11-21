@@ -1,1 +1,1 @@
-char a = 'a'!
+ENTEGER a = 1!
