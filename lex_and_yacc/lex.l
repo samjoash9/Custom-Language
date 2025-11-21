@@ -66,7 +66,7 @@
     return IDENTIFIER;
 }
 
-\n { printf("[LEX] NEWLINE\n"); }
+\n                      ;
 
 .  {
     printf("[LEX] INVALID CHARACTER (%s)\n", yytext);

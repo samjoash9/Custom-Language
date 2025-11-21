@@ -14,16 +14,35 @@
 // === TOKEN TYPES ===
 typedef enum
 {
-    TOK_DATATYPE,
-    TOK_IDENTIFIER,
-    TOK_INT_LITERAL,
-    TOK_CHAR_LITERAL,
-    TOK_ASSIGN,
-    TOK_OPERATOR,
-    TOK_COMPOUND_ASSIGN,
-    TOK_DELIMITER,
-    TOK_PARENTHESIS,
-    TOK_UNKNOWN
+    KUAN,
+    ENTEGER,
+    CHAROT,
+    PRENT,
+
+    PLUS_EQUAL,
+    MINUS_EQUAL,
+    DIV_EQUAL,
+    MUL_EQUAL,
+
+    PLUSPLUS,
+    MINUSMINUS,
+
+    PLUS,
+    MINUS,
+    MUL,
+    DIV,
+    EQUAL,
+
+    EXCLAM,
+    LPAREN,
+    RPAREN,
+    COMMA,
+
+    INT_LITERAL,
+    CHAR_LITERAL,
+    STRING_LITERAL,
+    IDENTIFIER
+
 } TokenType;
 
 // === TOKEN STRUCT ===

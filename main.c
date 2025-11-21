@@ -55,15 +55,15 @@ int main()
         return 0;
     }
 
-    // === STEP 2: SYNTAX ANALYSIS ===
-    printf("\n===== SYNTAX ANALYSIS START =====\n");
-    int syntax_status = syntax_analyzer();
-    if (syntax_status != 0)
-    {
-        printf("\nCompilation aborted due to syntax error.\n");
-        free(source_code);
-        return 0;
-    }
+    // // === STEP 2: SYNTAX ANALYSIS ===
+    // printf("\n===== SYNTAX ANALYSIS START =====\n");
+    // int syntax_status = syntax_analyzer();
+    // if (syntax_status != 0)
+    // {
+    //     printf("\nCompilation aborted due to syntax error.\n");
+    //     free(source_code);
+    //     return 0;
+    // }
 
     // // === STEP 3: SEMANTIC ANALYSIS ===
     // printf("====== SEMANTIC ANALYZER ======\n");
@@ -91,8 +91,8 @@ int main()
 
     // === CLEANUP ===
     free(source_code);
-    if (optimizedCode)
-        free(optimizedCode);
+    // if (optimizedCode)
+    //     free(optimizedCode);
 
     return 0;
 }

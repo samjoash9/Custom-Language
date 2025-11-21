@@ -841,7 +841,7 @@ YY_RULE_SETUP
 case 30:
 YY_RULE_SETUP
 #line 69 "lex.l"
-{ printf("[LEX] NEWLINE\n"); }
+;
 	YY_BREAK
 case 31:
 YY_RULE_SETUP
